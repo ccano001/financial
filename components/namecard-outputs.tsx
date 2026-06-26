@@ -222,50 +222,38 @@ export function ZoomBackgroundOutput({ data, logoCornerColor = "rgba(255,255,255
   const previewScale = PANEL_W / ZOOM_W
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
 
-      {/* ── LOGO HINT — shown only if no logo uploaded yet ── */}
-      {!data.firmLogo && (
-        <div style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "12px 14px", background: "#FFF7ED", border: "1.5px solid #FED7AA", borderRadius: 10 }}>
-          <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="#F97316" strokeWidth={2} style={{ flexShrink: 0, marginTop: 1 }}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M12 2a10 10 0 100 20A10 10 0 0012 2z"/>
-          </svg>
-          <p style={{ margin: 0, fontSize: 12, color: "#9A3412", lineHeight: 1.5 }}>
-            Set up your logo on the <strong>Lock Screen</strong> tab first — it'll automatically appear here in the right format.
-          </p>
+      {/* ── LAYOUT ── */}
+      <div style={{ border: "1px solid #E5E7EB", borderRadius: 12, overflow: "hidden" }}>
+        <div style={{ padding: "12px 16px", background: "#F9FAFB", borderBottom: "1px solid #E5E7EB" }}>
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Layout</h2>
         </div>
-      )}
-
-      {/* ── SIMPLIFIED CONTROLS ── */}
-      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-
-        {/* Layout — just two options, clearly labelled */}
-        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-          <Label>Layout</Label>
-          <div style={{ display: "flex", gap: 8 }}>
-            {([
-              { value: "logo-left"  as LayoutPreset, label: "← Logo left",  sub: "Info bottom right" },
-              { value: "logo-right" as LayoutPreset, label: "Logo right →", sub: "Info bottom left"  },
-            ]).map(opt => (
-              <button key={opt.value} onClick={() => set("layout", opt.value)} style={{
-                flex: 1, padding: "10px 8px", borderRadius: 10, cursor: "pointer",
-                border: "1.5px solid",
-                borderColor: settings.layout === opt.value ? "#00AEFF" : "#E5E7EB",
-                background: settings.layout === opt.value ? "#EBF7FF" : "white",
-                display: "flex", flexDirection: "column", gap: 2,
-              }}>
-                <span style={{ fontSize: 13, fontWeight: 600, color: settings.layout === opt.value ? "#0090D8" : "#111827" }}>
-                  {opt.label}
-                </span>
-                <span style={{ fontSize: 11, color: "#9CA3AF" }}>{opt.sub}</span>
-              </button>
-            ))}
-          </div>
+        <div style={{ padding: "12px 16px", display: "flex", gap: 8 }}>
+          {([
+            { value: "logo-left"  as LayoutPreset, label: "← Logo left",  sub: "Info top right" },
+            { value: "logo-right" as LayoutPreset, label: "Logo right →", sub: "Info top left"  },
+          ]).map(opt => (
+            <button key={opt.value} onClick={() => set("layout", opt.value)} style={{
+              flex: 1, padding: "10px 8px", borderRadius: 10, cursor: "pointer",
+              border: "1.5px solid",
+              borderColor: settings.layout === opt.value ? "#00AEFF" : "#E5E7EB",
+              background: settings.layout === opt.value ? "#EBF7FF" : "white",
+              display: "flex", flexDirection: "column", gap: 2,
+            }}>
+              <span style={{ fontSize: 13, fontWeight: 600, color: settings.layout === opt.value ? "#0090D8" : "#111827" }}>{opt.label}</span>
+              <span style={{ fontSize: 11, color: "#9CA3AF" }}>{opt.sub}</span>
+            </button>
+          ))}
         </div>
+      </div>
 
-        {/* Logo shape */}
-        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-          <Label>Logo frame</Label>
+      {/* ── LOGO FRAME ── */}
+      <div style={{ border: "1px solid #E5E7EB", borderRadius: 12, overflow: "hidden" }}>
+        <div style={{ padding: "12px 16px", background: "#F9FAFB", borderBottom: "1px solid #E5E7EB" }}>
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Logo Frame</h2>
+        </div>
+        <div style={{ padding: "12px 16px", display: "flex", flexDirection: "column", gap: 8 }}>
           <div style={{ display: "flex", gap: 8 }}>
             {([
               { value: "square"    as LogoShape, label: "■  Square",    sub: "Circular / square logos" },
@@ -278,51 +266,48 @@ export function ZoomBackgroundOutput({ data, logoCornerColor = "rgba(255,255,255
                 background: settings.logoShape === opt.value ? "#EBF7FF" : "white",
                 display: "flex", flexDirection: "column", gap: 2, textAlign: "left",
               }}>
-                <span style={{ fontSize: 13, fontWeight: 600, color: settings.logoShape === opt.value ? "#0090D8" : "#111827" }}>
-                  {opt.label}
-                </span>
+                <span style={{ fontSize: 13, fontWeight: 600, color: settings.logoShape === opt.value ? "#0090D8" : "#111827" }}>{opt.label}</span>
                 <span style={{ fontSize: 11, color: "#9CA3AF" }}>{opt.sub}</span>
               </button>
             ))}
           </div>
           <p style={{ fontSize: 11, color: "#9CA3AF", margin: 0 }}>Changing this also updates your Lock Screen logo style.</p>
         </div>
+      </div>
 
-        {/* Background colour */}
-        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-          <Label>Background</Label>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            {/* Solid / Gradient toggle */}
-            <div style={{ display: "flex", gap: 4 }}>
-              {(["solid","gradient"] as BgStyle[]).map(s => (
-                <button key={s} onClick={() => set("bgStyle", s)} style={{
-                  padding: "5px 12px", borderRadius: 8, fontSize: 12, fontWeight: 500,
-                  cursor: "pointer", border: "1.5px solid",
-                  borderColor: settings.bgStyle === s ? "#00AEFF" : "#E5E7EB",
-                  background: settings.bgStyle === s ? "#EBF7FF" : "white",
-                  color: settings.bgStyle === s ? "#0090D8" : "#6B7280",
-                }}>
-                  {s === "solid" ? "Solid" : "Gradient"}
-                </button>
-              ))}
-            </div>
-            {/* Color pickers inline */}
-            <input type="color" value={settings.bgColor} onChange={e => set("bgColor", e.target.value)}
-              style={{ width: 36, height: 32, borderRadius: 6, border: "1px solid #E5E7EB", padding: 2, cursor: "pointer" }} />
-            {settings.bgStyle === "gradient" && (
-              <>
-                <span style={{ fontSize: 12, color: "#9CA3AF" }}>→</span>
-                <input type="color" value={settings.bgColor2} onChange={e => set("bgColor2", e.target.value)}
-                  style={{ width: 36, height: 32, borderRadius: 6, border: "1px solid #E5E7EB", padding: 2, cursor: "pointer" }} />
-              </>
-            )}
-            <span style={{ fontFamily: "monospace", fontSize: 11, color: "#9CA3AF" }}>{settings.bgColor.toUpperCase()}</span>
+      {/* ── BACKGROUND ── */}
+      <div style={{ border: "1px solid #E5E7EB", borderRadius: 12, overflow: "hidden" }}>
+        <div style={{ padding: "12px 16px", background: "#F9FAFB", borderBottom: "1px solid #E5E7EB" }}>
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Background</h2>
+        </div>
+        <div style={{ padding: "12px 16px", display: "flex", alignItems: "center", gap: 10 }}>
+          <div style={{ display: "flex", gap: 4 }}>
+            {(["solid","gradient"] as BgStyle[]).map(s => (
+              <button key={s} onClick={() => set("bgStyle", s)} style={{
+                padding: "5px 12px", borderRadius: 8, fontSize: 12, fontWeight: 500,
+                cursor: "pointer", border: "1.5px solid",
+                borderColor: settings.bgStyle === s ? "#00AEFF" : "#E5E7EB",
+                background: settings.bgStyle === s ? "#EBF7FF" : "white",
+                color: settings.bgStyle === s ? "#0090D8" : "#6B7280",
+              }}>
+                {s === "solid" ? "Solid" : "Gradient"}
+              </button>
+            ))}
           </div>
+          <input type="color" value={settings.bgColor} onChange={e => set("bgColor", e.target.value)}
+            style={{ width: 36, height: 32, borderRadius: 6, border: "1px solid #E5E7EB", padding: 2, cursor: "pointer" }} />
+          {settings.bgStyle === "gradient" && (
+            <>
+              <span style={{ fontSize: 12, color: "#9CA3AF" }}>→</span>
+              <input type="color" value={settings.bgColor2} onChange={e => set("bgColor2", e.target.value)}
+                style={{ width: 36, height: 32, borderRadius: 6, border: "1px solid #E5E7EB", padding: 2, cursor: "pointer" }} />
+            </>
+          )}
+          <span style={{ fontFamily: "monospace", fontSize: 11, color: "#9CA3AF" }}>{settings.bgColor.toUpperCase()}</span>
         </div>
       </div>
 
       {/* ── 16:9 PREVIEW ── */}
-      {/* FIX: width=390, height=390*(1080/1920)=219 — true 16:9 */}
       <div style={{
         width: PANEL_W,
         height: Math.round(PANEL_W * (ZOOM_H / ZOOM_W)),
@@ -450,22 +435,37 @@ export function EmailSignatureOutput({ data }: { data: NamecardData }) {
   }
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-        <Label htmlFor="sig-accent">Accent colour</Label>
-        <input id="sig-accent" type="color" value={accentColor} onChange={e => setAccentColor(e.target.value)}
-          style={{ width: 36, height: 32, borderRadius: 6, border: "1px solid #E5E7EB", padding: 2, cursor: "pointer" }} />
-        <span style={{ fontFamily: "monospace", fontSize: 12, color: "#6B7280" }}>{accentColor.toUpperCase()}</span>
-      </div>
-      <p style={{ fontSize: 12, color: "#6B7280", margin: 0, lineHeight: 1.5 }}>
-        Download the PNG then insert it as an image in Gmail or Outlook signature settings. Link it to your QR URL so clicks go to your digital card.
-      </p>
-      {/* FIX: scale signature to fit 390px panel — SIG_W=480, so scale = 390/480 */}
-      <div style={{ width: 390, height: Math.round(SIG_H * (390 / SIG_W)), overflow: "visible", borderRadius: 8 }}>
-        <div ref={sigRef} style={{ transformOrigin: "top left", transform: `scale(${390 / SIG_W})` }}>
-          <EmailSigCanvas data={data} accentColor={accentColor} />
+    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+
+      {/* ── ACCENT COLOUR ── */}
+      <div style={{ border: "1px solid #E5E7EB", borderRadius: 12, overflow: "hidden" }}>
+        <div style={{ padding: "12px 16px", background: "#F9FAFB", borderBottom: "1px solid #E5E7EB" }}>
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Accent Colour</h2>
+        </div>
+        <div style={{ padding: "12px 16px", display: "flex", alignItems: "center", gap: 10 }}>
+          <input id="sig-accent" type="color" value={accentColor} onChange={e => setAccentColor(e.target.value)}
+            style={{ width: 36, height: 32, borderRadius: 6, border: "1px solid #E5E7EB", padding: 2, cursor: "pointer" }} />
+          <span style={{ fontFamily: "monospace", fontSize: 12, color: "#6B7280" }}>{accentColor.toUpperCase()}</span>
         </div>
       </div>
+
+      {/* ── PREVIEW ── */}
+      <div style={{ border: "1px solid #E5E7EB", borderRadius: 12, overflow: "hidden" }}>
+        <div style={{ padding: "12px 16px", background: "#F9FAFB", borderBottom: "1px solid #E5E7EB" }}>
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Preview</h2>
+        </div>
+        <div style={{ padding: "16px" }}>
+          <div style={{ width: 390, height: Math.round(SIG_H * (390 / SIG_W)), overflow: "visible", borderRadius: 8 }}>
+            <div ref={sigRef} style={{ transformOrigin: "top left", transform: `scale(${390 / SIG_W})` }}>
+              <EmailSigCanvas data={data} accentColor={accentColor} />
+            </div>
+          </div>
+          <p style={{ fontSize: 11, color: "#9CA3AF", margin: "10px 0 0", lineHeight: 1.5 }}>
+            Download the PNG then insert it as an image in Gmail or Outlook. Link it to your QR URL so clicks go to your digital card.
+          </p>
+        </div>
+      </div>
+
       <Button onClick={handleDownload} disabled={downloading} size="lg">
         <Download className="size-4" />
         {downloading ? "Generating…" : "Download Email Signature"}
