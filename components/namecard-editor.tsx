@@ -63,9 +63,12 @@ interface DigitalCardSettings {
   link1Label: string; link1Url: string
   link2Label: string; link2Url: string
   // Offer toggles
-  offerKyc:      boolean
-  offerAccess:   boolean
-  offerNamecard: boolean
+  offerKyc:         boolean
+  offerAccess:      boolean
+  offerNamecard:    boolean
+  offerCustomOn:    boolean
+  offerCustomLabel: string
+  offerCustomUrl:   string
 }
 
 const DEFAULT_CARD: DigitalCardSettings = {
@@ -82,9 +85,12 @@ const DEFAULT_CARD: DigitalCardSettings = {
   calendlyLabel2: "30-min financial review",
   link1Label:   "", link1Url:     "",
   link2Label:   "", link2Url:     "",
-  offerKyc:      true,
-  offerAccess:   true,
-  offerNamecard: true,
+  offerKyc:         true,
+  offerAccess:      true,
+  offerNamecard:    true,
+  offerCustomOn:    false,
+  offerCustomLabel: "",
+  offerCustomUrl:   "",
 }
 
 // ─── IMAGE CROP MODAL ────────────────────────────────────────────
@@ -231,16 +237,33 @@ function FieldRow({ id, label, value, onChange, placeholder }: {
   )
 }
 
-function ImageUpload({ label, value, onChange, aspectRatio }: {
-  label: string; value: string | null; onChange: (v: string | null) => void; aspectRatio: number
+function ImageUpload({ label, value, onChange, aspectRatio, onDetectRatio }: {
+  label: string; value: string | null; onChange: (v: string | null) => void
+  aspectRatio: number; onDetectRatio?: (ratio: number) => number
 }) {
   const inputRef = useRef<HTMLInputElement>(null)
   const [editSrc, setEditSrc] = useState<string | null>(null)
+  const [resolvedRatio, setResolvedRatio] = useState(aspectRatio)
 
   const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]; if (!file) return
     const reader = new FileReader()
-    reader.onload = () => setEditSrc(reader.result as string)
+    reader.onload = () => {
+      const dataUrl = reader.result as string
+      if (onDetectRatio) {
+        // Measure image first, let parent update logoStyle, get back correct crop ratio
+        const img = new Image()
+        img.onload = () => {
+          const cropRatio = onDetectRatio(img.width / img.height)
+          setResolvedRatio(cropRatio)
+          setEditSrc(dataUrl)
+        }
+        img.src = dataUrl
+      } else {
+        setResolvedRatio(aspectRatio)
+        setEditSrc(dataUrl)
+      }
+    }
     reader.readAsDataURL(file); e.target.value = ""
   }
 
@@ -265,7 +288,7 @@ function ImageUpload({ label, value, onChange, aspectRatio }: {
         )}
       </div>
       {editSrc && (
-        <ImageEditModal src={editSrc} label={label} aspectRatio={aspectRatio}
+        <ImageEditModal src={editSrc} label={label} aspectRatio={resolvedRatio}
           onApply={dataUrl => { onChange(dataUrl); setEditSrc(null) }}
           onClose={() => setEditSrc(null)} />
       )}
@@ -299,6 +322,7 @@ export default function NamecardEditor() {
   const [cardEditTarget, setCardEditTarget] = useState<"profile" | "logo" | null>(null)
   const [qrMode, setQrMode] = useState<"auto" | "custom">("auto")
   const [logoCornerColor, setLogoCornerColor] = useState<string>("transparent")
+  const [showMeeting2, setShowMeeting2] = useState(false)
 
   // Sample all 4 corners of logo — if any are transparent, use transparent
   // Otherwise use the most common corner color (handles logos with solid bg)
@@ -358,7 +382,12 @@ export default function NamecardEditor() {
       card.offerKyc      && "kyc",
       card.offerAccess   && "access",
       card.offerNamecard && "namecard",
+      card.offerCustomOn && card.offerCustomLabel && "custom",
     ].filter(Boolean).join(",")
+    if (card.offerCustomOn && card.offerCustomLabel) {
+      p.set("offerCustomLabel", card.offerCustomLabel)
+      if (card.offerCustomUrl) p.set("offerCustomUrl", card.offerCustomUrl)
+    }
     // Always set offers param — empty string becomes "none" so digital card hides CTA
     p.set("offers", offers || "none")
     return `${card.baseUrl}?${p.toString()}`
@@ -431,8 +460,20 @@ export default function NamecardEditor() {
               <FieldRow id="firmName" label="Firm name" value={data.firmName} onChange={v => update("firmName", v)} />
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
-              <FieldRow id="phone" label="Phone" value={data.phone} onChange={v => update("phone", v)} />
-              <FieldRow id="email" label="Email" value={data.email} onChange={v => update("email", v)} />
+              <FieldRow id="phone" label="Phone" value={data.phone} onChange={v => update("phone", v.replace(/[a-zA-Z]/g, ""))} placeholder="+65 9123 4567" />
+              <div className="grid gap-1.5">
+                <Label htmlFor="email">Email</Label>
+                <Input
+                  id="email"
+                  value={data.email}
+                  placeholder="you@company.com"
+                  onChange={e => update("email", e.target.value)}
+                  style={{ borderColor: data.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email) ? "#F87171" : undefined }}
+                />
+                {data.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email) && (
+                  <p style={{ fontSize: 11, color: "#EF4444", margin: 0 }}>Enter a valid email address</p>
+                )}
+              </div>
             </div>
             <FieldRow id="address" label="Office address" value={data.address} onChange={v => update("address", v)} />
             <div className="grid gap-1.5">
@@ -480,7 +521,11 @@ export default function NamecardEditor() {
                 </>
               )}
             </div>
-            <FieldRow id="brandName" label="Wordmark" value={data.brandName} onChange={v => update("brandName", v)} />
+            <div className="grid gap-1.5">
+              <Label htmlFor="brandName">Brand name</Label>
+              <Input id="brandName" value={data.brandName} onChange={e => update("brandName", e.target.value)} />
+              <p style={{ fontSize: 11, color: "#9CA3AF", margin: 0 }}>Shown in the corner badge of your lock screen wallpaper</p>
+            </div>
           </section>
 
           {/* Media */}
@@ -493,7 +538,11 @@ export default function NamecardEditor() {
               update("firmLogo", v)
               if (v) sampleLogoCorner(v)
               else setLogoCornerColor("transparent")
-            }} aspectRatio={LOGO_RATIO} />
+            }} aspectRatio={LOGO_RATIO} onDetectRatio={imgRatio => {
+              const isWide = imgRatio > 1.6
+              update("logoStyle", isWide ? "banner" : "tl")
+              return isWide ? 390 / 138 : 1
+            }} />
           </section>
 
         </div>
@@ -568,129 +617,177 @@ export default function NamecardEditor() {
           )}
 
           {/* ── ZOOM BACKGROUND ── */}
-          {activeTab === "zoom" && <ZoomBackgroundOutput data={data} logoCornerColor={logoCornerColor} />}
+          {activeTab === "zoom" && (
+            <ZoomBackgroundOutput
+              data={data}
+              logoCornerColor={logoCornerColor}
+              logoShape={data.logoStyle === "banner" ? "rectangle" : "square"}
+              onLogoShapeChange={shape => update("logoStyle", shape === "rectangle" ? "banner" : "tl")}
+            />
+          )}
 
           {/* ── EMAIL SIGNATURE ── */}
           {activeTab === "email" && <EmailSignatureOutput data={data} />}
 
           {/* ── DIGITAL CARD ── */}
           {activeTab === "card" && (
-            <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
 
-              {/* Base URL */}
-              <div className="grid gap-1.5">
-                <Label>Base URL</Label>
-                <Input value={card.baseUrl} onChange={e => updateCard("baseUrl", e.target.value)} placeholder="https://financialruler.com/card" />
+              {/* ── BASE URL ── */}
+              <div style={{ background: "#F9FAFB", border: "1px solid #E5E7EB", borderRadius: 12, padding: "14px 16px", display: "flex", flexDirection: "column", gap: 6 }}>
+                <Label style={{ fontSize: 11, color: "#6B7280", textTransform: "uppercase", letterSpacing: "0.06em" }}>Base URL</Label>
+                <Input value={card.baseUrl} onChange={e => updateCard("baseUrl", e.target.value)} placeholder="https://financialruler.com/card" style={{ fontSize: 12, fontFamily: "monospace" }} />
                 <p style={{ fontSize: 11, color: "#9CA3AF", margin: 0 }}>The domain where digital-card.html is hosted</p>
               </div>
 
-              {/* Social toggles */}
-              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Social Links</h2>
-                {([
-                  { key: "linkedin",  onKey: "linkedinOn",  label: "LinkedIn",    placeholder: "linkedin.com/in/yourname" },
-                  { key: "youtube",   onKey: "youtubeOn",   label: "YouTube",     placeholder: "youtube.com/@yourchannel" },
-                  { key: "instagram", onKey: "instagramOn", label: "Instagram",   placeholder: "instagram.com/yourhandle" },
-                  { key: "facebook",  onKey: "facebookOn",  label: "Facebook",    placeholder: "facebook.com/yourpage" },
-                  { key: "twitter",   onKey: "twitterOn",   label: "X (Twitter)", placeholder: "x.com/yourhandle" },
-                  { key: "website",   onKey: "websiteOn",   label: "Website",     placeholder: "yourwebsite.com" },
-                ] as const).map(s => (
-                  <div key={s.key} style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                    <button
-                      onClick={() => updateCard(s.onKey, !card[s.onKey])}
-                      style={{
-                        width: 36, height: 20, borderRadius: 10, border: "none", cursor: "pointer", flexShrink: 0,
-                        background: card[s.onKey] ? "#00AEFF" : "#E5E7EB",
-                        position: "relative", transition: "background 0.2s",
-                      }}
-                    >
-                      <span style={{
-                        position: "absolute", top: 2, width: 16, height: 16, borderRadius: "50%", background: "white",
-                        transition: "left 0.2s", left: card[s.onKey] ? 18 : 2,
-                      }} />
-                    </button>
-                    <Label style={{ minWidth: 80, fontSize: 12 }}>{s.label}</Label>
-                    <Input
-                      value={card[s.key]}
-                      onChange={e => updateCard(s.key, e.target.value)}
-                      placeholder={s.placeholder}
-                      disabled={!card[s.onKey]}
-                      style={{ opacity: card[s.onKey] ? 1 : 0.4 }}
-                    />
-                  </div>
-                ))}
-              </div>
-
-              {/* Calendly — two bookings */}
-              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Book a Meeting</h2>
-                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                  <Label style={{ fontSize: 11 }}>Meeting 1 label</Label>
-                  <Input value={card.calendlyLabel1} onChange={e => updateCard("calendlyLabel1", e.target.value)} placeholder="15-min coffee chat" />
-                  <Input value={card.calendly1} onChange={e => updateCard("calendly1", e.target.value)} placeholder="calendly.com/yourname/coffee" />
+              {/* ── SOCIAL LINKS ── */}
+              <div style={{ border: "1px solid #E5E7EB", borderRadius: 12, overflow: "hidden" }}>
+                <div style={{ padding: "12px 16px", background: "#F9FAFB", borderBottom: "1px solid #E5E7EB" }}>
+                  <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Social Links</h2>
                 </div>
-                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                  <Label style={{ fontSize: 11 }}>Meeting 2 label <span style={{ color: "#9CA3AF", fontWeight: 400 }}>(optional)</span></Label>
-                  <Input value={card.calendlyLabel2} onChange={e => updateCard("calendlyLabel2", e.target.value)} placeholder="30-min financial review" />
-                  <Input value={card.calendly2} onChange={e => updateCard("calendly2", e.target.value)} placeholder="calendly.com/yourname/review" />
+                <div style={{ padding: "8px 16px 12px", display: "flex", flexDirection: "column", gap: 6 }}>
+                  {([
+                    { key: "linkedin",  onKey: "linkedinOn",  label: "LinkedIn",    placeholder: "linkedin.com/in/yourname" },
+                    { key: "youtube",   onKey: "youtubeOn",   label: "YouTube",     placeholder: "youtube.com/@yourchannel" },
+                    { key: "instagram", onKey: "instagramOn", label: "Instagram",   placeholder: "instagram.com/yourhandle" },
+                    { key: "facebook",  onKey: "facebookOn",  label: "Facebook",    placeholder: "facebook.com/yourpage" },
+                    { key: "twitter",   onKey: "twitterOn",   label: "X (Twitter)", placeholder: "x.com/yourhandle" },
+                    { key: "website",   onKey: "websiteOn",   label: "Website",     placeholder: "yourwebsite.com" },
+                  ] as const).map(s => (
+                    <div key={s.key} style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                        <button onClick={() => updateCard(s.onKey, !card[s.onKey])} style={{ width: 36, height: 20, borderRadius: 10, border: "none", cursor: "pointer", flexShrink: 0, background: card[s.onKey] ? "#00AEFF" : "#E5E7EB", position: "relative", transition: "background 0.2s" }}>
+                          <span style={{ position: "absolute", top: 2, width: 16, height: 16, borderRadius: "50%", background: "white", transition: "left 0.2s", left: card[s.onKey] ? 18 : 2 }} />
+                        </button>
+                        <span style={{ fontSize: 13, fontWeight: card[s.onKey] ? 600 : 400, color: card[s.onKey] ? "#111827" : "#6B7280" }}>{s.label}</span>
+                      </div>
+                      {card[s.onKey] && (
+                        <Input value={card[s.key]} onChange={e => updateCard(s.key, e.target.value)} placeholder={s.placeholder} style={{ marginLeft: 46 }} />
+                      )}
+                    </div>
+                  ))}
                 </div>
               </div>
 
-              {/* Featured links */}
-              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Featured Links (max 2)</h2>
-                {([
-                  { lKey: "link1Label" as const, uKey: "link1Url" as const, n: 1 },
-                  { lKey: "link2Label" as const, uKey: "link2Url" as const, n: 2 },
-                ]).map(l => (
-                  <div key={l.n} style={{ display: "flex", gap: 8 }}>
-                    <Input value={card[l.lKey]} onChange={e => updateCard(l.lKey, e.target.value)} placeholder={`Link ${l.n} label`} style={{ flex: "0 0 120px" }} />
-                    <Input value={card[l.uKey]} onChange={e => updateCard(l.uKey, e.target.value)} placeholder="https://..." />
+              {/* ── BOOK A MEETING ── */}
+              <div style={{ border: "1px solid #E5E7EB", borderRadius: 12, overflow: "hidden" }}>
+                <div style={{ padding: "12px 16px", background: "#F9FAFB", borderBottom: "1px solid #E5E7EB" }}>
+                  <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Book a Meeting</h2>
+                </div>
+                <div style={{ padding: "12px 16px", display: "flex", flexDirection: "column", gap: 8 }}>
+                  {/* Meeting 1 */}
+                  <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                    <Label style={{ fontSize: 11, color: "#6B7280" }}>Meeting 1</Label>
+                    <Input value={card.calendlyLabel1} onChange={e => updateCard("calendlyLabel1", e.target.value)} placeholder="Label e.g. 15-min coffee chat" />
+                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                      <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="#9CA3AF" strokeWidth={2} style={{ flexShrink: 0 }}><path strokeLinecap="round" strokeLinejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.1-1.1m-.757-4.9a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>
+                      <Input value={card.calendly1} onChange={e => updateCard("calendly1", e.target.value)} placeholder="calendly.com/yourname/coffee" />
+                    </div>
                   </div>
-                ))}
-              </div>
 
-              {/* Offer toggles */}
-              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Offers to Show</h2>
-                {([
-                  { key: "offerKyc"      as const, label: "Free KYC Report" },
-                  { key: "offerAccess"   as const, label: "1 Year Free Access" },
-                  { key: "offerNamecard" as const, label: "Free Namecard" },
-                ]).map(o => (
-                  <div key={o.key} style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                    <button
-                      onClick={() => updateCard(o.key, !card[o.key])}
-                      style={{
-                        width: 36, height: 20, borderRadius: 10, border: "none", cursor: "pointer", flexShrink: 0,
-                        background: card[o.key] ? "#00AEFF" : "#E5E7EB",
-                        position: "relative", transition: "background 0.2s",
-                      }}
-                    >
-                      <span style={{
-                        position: "absolute", top: 2, width: 16, height: 16, borderRadius: "50%", background: "white",
-                        transition: "left 0.2s", left: card[o.key] ? 18 : 2,
-                      }} />
+                  {/* Meeting 2 — collapsible */}
+                  {!showMeeting2 ? (
+                    <button onClick={() => setShowMeeting2(true)} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "#00AEFF", fontWeight: 500, background: "none", border: "none", cursor: "pointer", padding: 0, alignSelf: "flex-start" }}>
+                      <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4"/></svg>
+                      Add second meeting type
                     </button>
-                    <Label style={{ fontSize: 13 }}>{o.label}</Label>
-                  </div>
-                ))}
+                  ) : (
+                    <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                        <Label style={{ fontSize: 11, color: "#6B7280" }}>Meeting 2</Label>
+                        <button onClick={() => { setShowMeeting2(false); updateCard("calendly2", ""); updateCard("calendlyLabel2", "") }} style={{ fontSize: 11, color: "#9CA3AF", background: "none", border: "none", cursor: "pointer" }}>Remove</button>
+                      </div>
+                      <Input value={card.calendlyLabel2} onChange={e => updateCard("calendlyLabel2", e.target.value)} placeholder="Label e.g. 30-min financial review" />
+                      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                        <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="#9CA3AF" strokeWidth={2} style={{ flexShrink: 0 }}><path strokeLinecap="round" strokeLinejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.1-1.1m-.757-4.9a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>
+                        <Input value={card.calendly2} onChange={e => updateCard("calendly2", e.target.value)} placeholder="calendly.com/yourname/review" />
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
 
-              {/* Generated URL */}
-              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Your Card Link</h2>
+              {/* ── FEATURED LINKS ── */}
+              <div style={{ border: "1px solid #E5E7EB", borderRadius: 12, overflow: "hidden" }}>
+                <div style={{ padding: "12px 16px", background: "#F9FAFB", borderBottom: "1px solid #E5E7EB" }}>
+                  <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Featured Links</h2>
+                </div>
+                <div style={{ padding: "12px 16px", display: "flex", flexDirection: "column", gap: 8 }}>
+                  {([
+                    { lKey: "link1Label" as const, uKey: "link1Url" as const, n: 1 },
+                    { lKey: "link2Label" as const, uKey: "link2Url" as const, n: 2 },
+                  ]).map(l => (
+                    <div key={l.n} style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                      <Label style={{ fontSize: 11, color: "#6B7280" }}>Link {l.n}</Label>
+                      <Input value={card[l.lKey]} onChange={e => updateCard(l.lKey, e.target.value)} placeholder="Label e.g. My latest article" />
+                      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                        <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="#9CA3AF" strokeWidth={2} style={{ flexShrink: 0 }}><path strokeLinecap="round" strokeLinejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.1-1.1m-.757-4.9a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>
+                        <Input value={card[l.uKey]} onChange={e => updateCard(l.uKey, e.target.value)} placeholder="https://..." />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* ── OFFERS ── */}
+              <div style={{ border: "1px solid #E5E7EB", borderRadius: 12, overflow: "hidden" }}>
+                <div style={{ padding: "12px 16px", background: "#F9FAFB", borderBottom: "1px solid #E5E7EB" }}>
+                  <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Offers to Show</h2>
+                </div>
+                <div style={{ padding: "12px 16px", display: "flex", flexDirection: "column", gap: 8 }}>
+                  <p style={{ fontSize: 11, color: "#9CA3AF", margin: 0 }}>These appear as claimable offers on your digital card. Toggle on the ones you want to show.</p>
+                  {([
+                    { key: "offerKyc"      as const, label: "Free KYC Report",    desc: "You run a financial health check and share the results with the prospect." },
+                    { key: "offerAccess"   as const, label: "1 Year Free Access", desc: "You sponsor the prospect's free access to FinancialRuler for 1 year." },
+                    { key: "offerNamecard" as const, label: "Free Namecard",      desc: "The prospect gets their own free FinancialRuler digital namecard." },
+                  ]).map(o => (
+                    <div key={o.key} style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "10px 12px", border: "1.5px solid", borderColor: card[o.key] ? "#00AEFF" : "#E5E7EB", borderRadius: 10, background: card[o.key] ? "#EBF7FF" : "white", transition: "all 0.15s", cursor: "pointer" }}
+                      onClick={() => updateCard(o.key, !card[o.key])}>
+                      <button style={{ width: 36, height: 20, borderRadius: 10, border: "none", cursor: "pointer", flexShrink: 0, marginTop: 2, background: card[o.key] ? "#00AEFF" : "#E5E7EB", position: "relative", transition: "background 0.2s" }}>
+                        <span style={{ position: "absolute", top: 2, width: 16, height: 16, borderRadius: "50%", background: "white", transition: "left 0.2s", left: card[o.key] ? 18 : 2 }} />
+                      </button>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 13, fontWeight: 600, color: card[o.key] ? "#0090D8" : "#111827" }}>{o.label}</div>
+                        <div style={{ fontSize: 11, color: "#9CA3AF", marginTop: 2, lineHeight: 1.5 }}>{o.desc}</div>
+                      </div>
+                    </div>
+                  ))}
+
+                  {/* Custom offer */}
+                  <div style={{ border: "1.5px solid", borderColor: card.offerCustomOn ? "#00AEFF" : "#E5E7EB", borderRadius: 10, background: card.offerCustomOn ? "#EBF7FF" : "white", overflow: "hidden", transition: "all 0.15s" }}>
+                    <div style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "10px 12px", cursor: "pointer" }} onClick={() => updateCard("offerCustomOn", !card.offerCustomOn)}>
+                      <button style={{ width: 36, height: 20, borderRadius: 10, border: "none", cursor: "pointer", flexShrink: 0, marginTop: 2, background: card.offerCustomOn ? "#00AEFF" : "#E5E7EB", position: "relative", transition: "background 0.2s" }}>
+                        <span style={{ position: "absolute", top: 2, width: 16, height: 16, borderRadius: "50%", background: "white", transition: "left 0.2s", left: card.offerCustomOn ? 18 : 2 }} />
+                      </button>
+                      <div>
+                        <div style={{ fontSize: 13, fontWeight: 600, color: card.offerCustomOn ? "#0090D8" : "#111827" }}>Custom Offer</div>
+                        <div style={{ fontSize: 11, color: "#9CA3AF", marginTop: 2, lineHeight: 1.5 }}>A voucher, free session, or anything else you want to offer.</div>
+                      </div>
+                    </div>
+                    {card.offerCustomOn && (
+                      <div style={{ padding: "0 12px 12px", display: "flex", flexDirection: "column", gap: 6 }}>
+                        <Input value={card.offerCustomLabel} onChange={e => updateCard("offerCustomLabel", e.target.value)} placeholder="e.g. Free $50 voucher" />
+                        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                          <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="#9CA3AF" strokeWidth={2} style={{ flexShrink: 0 }}><path strokeLinecap="round" strokeLinejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.1-1.1m-.757-4.9a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>
+                          <Input value={card.offerCustomUrl} onChange={e => updateCard("offerCustomUrl", e.target.value)} placeholder="Link to redeem (optional)" />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* ── YOUR CARD LINK — elevated payoff ── */}
+              <div style={{ background: "#EBF7FF", border: "1.5px solid #00AEFF", borderRadius: 12, padding: "16px" }}>
+                <h2 className="text-sm font-semibold uppercase tracking-wide" style={{ color: "#0090D8", marginBottom: 8 }}>Your Card Link</h2>
                 <div style={{ display: "flex", gap: 8 }}>
-                  <input
-                    readOnly value={cardUrl}
-                    style={{ flex: 1, padding: "10px 12px", borderRadius: 8, border: "1.5px solid #E5E7EB", fontSize: 11, fontFamily: "monospace", color: "#6B7280", background: "#F9FAFB", minWidth: 0 }}
-                  />
-                  <Button variant="outline" size="sm" onClick={() => navigator.clipboard.writeText(cardUrl)}>
+                  <input readOnly value={cardUrl} style={{ flex: 1, padding: "10px 12px", borderRadius: 8, border: "1.5px solid #BAE6FD", fontSize: 11, fontFamily: "monospace", color: "#0090D8", background: "white", minWidth: 0 }} />
+                  <Button size="sm" onClick={() => navigator.clipboard.writeText(cardUrl)} style={{ background: "#00AEFF", color: "white", border: "none" }}>
                     Copy
                   </Button>
                 </div>
-                <p style={{ fontSize: 11, color: "#9CA3AF", margin: 0 }}>
-                  This link is automatically set as the QR code on your Lock Screen wallpaper.
+                <p style={{ fontSize: 11, color: "#0090D8", margin: "6px 0 0", opacity: 0.7 }}>
+                  Automatically set as the QR code on your Lock Screen wallpaper.
                 </p>
               </div>
 

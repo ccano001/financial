@@ -1,6 +1,6 @@
 "use client"
 
-import { useRef, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { QRCodeSVG } from "qrcode.react"
 import { Download } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -178,7 +178,12 @@ function ZoomBgCanvas({ data, settings, scale, logoCornerColor = "rgba(255,255,2
   )
 }
 
-export function ZoomBackgroundOutput({ data, logoCornerColor = "rgba(255,255,255,0.95)" }: { data: NamecardData; logoCornerColor?: string }) {
+export function ZoomBackgroundOutput({ data, logoCornerColor = "rgba(255,255,255,0.95)", logoShape: logoShapeProp = "square", onLogoShapeChange }: {
+  data: NamecardData
+  logoCornerColor?: string
+  logoShape?: LogoShape
+  onLogoShapeChange?: (shape: LogoShape) => void
+}) {
   const exportRef = useRef<HTMLDivElement>(null)
   const [downloading, setDownloading] = useState(false)
 
@@ -187,11 +192,18 @@ export function ZoomBackgroundOutput({ data, logoCornerColor = "rgba(255,255,255
     bgStyle:   "solid",
     bgColor:   data.backgroundColor && data.backgroundColor !== "#FFFFFF" ? data.backgroundColor : "#1E3A5F",
     bgColor2:  "#00AEFF",
-    logoShape: "square",
+    logoShape: logoShapeProp,
   })
 
-  const set = <K extends keyof ZoomSettings>(k: K, v: ZoomSettings[K]) =>
+  // Keep logoShape in sync when lockscreen logo style changes
+  useEffect(() => {
+    setSettings(s => ({ ...s, logoShape: logoShapeProp }))
+  }, [logoShapeProp])
+
+  const set = <K extends keyof ZoomSettings>(k: K, v: ZoomSettings[K]) => {
     setSettings(s => ({ ...s, [k]: v }))
+    if (k === "logoShape" && onLogoShapeChange) onLogoShapeChange(v as LogoShape)
+  }
 
   const handleDownload = async () => {
     const el = exportRef.current
@@ -211,6 +223,18 @@ export function ZoomBackgroundOutput({ data, logoCornerColor = "rgba(255,255,255
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+
+      {/* ── LOGO HINT — shown only if no logo uploaded yet ── */}
+      {!data.firmLogo && (
+        <div style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "12px 14px", background: "#FFF7ED", border: "1.5px solid #FED7AA", borderRadius: 10 }}>
+          <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="#F97316" strokeWidth={2} style={{ flexShrink: 0, marginTop: 1 }}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M12 2a10 10 0 100 20A10 10 0 0012 2z"/>
+          </svg>
+          <p style={{ margin: 0, fontSize: 12, color: "#9A3412", lineHeight: 1.5 }}>
+            Set up your logo on the <strong>Lock Screen</strong> tab first — it'll automatically appear here in the right format.
+          </p>
+        </div>
+      )}
 
       {/* ── SIMPLIFIED CONTROLS ── */}
       <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
@@ -261,6 +285,7 @@ export function ZoomBackgroundOutput({ data, logoCornerColor = "rgba(255,255,255
               </button>
             ))}
           </div>
+          <p style={{ fontSize: 11, color: "#9CA3AF", margin: 0 }}>Changing this also updates your Lock Screen logo style.</p>
         </div>
 
         {/* Background colour */}
