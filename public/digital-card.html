@@ -1,0 +1,552 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+<title>FinancialRuler — Digital Card</title>
+<style>
+  :root {
+    --blue: #00AEFF; --blue-dark: #0090D8; --blue-bg: #EBF7FF;
+    --text: #111827; --sub: #6B7280; --border: #E5E7EB;
+    --white: #FFFFFF; --green: #22C55E;
+    --radius: 16px; --radius-sm: 10px;
+    --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  html, body { background: #F3F4F6; font-family: var(--font); color: var(--text); }
+  .shell { max-width: 430px; min-height: 100vh; margin: 0 auto; background: var(--white); }
+  .screen { display: none; flex-direction: column; min-height: 100vh; }
+  .screen.active { display: flex; }
+
+  /* BRAND BAR */
+  .brand-bar { display: flex; align-items: center; justify-content: center; gap: 6px; padding: 14px 0 10px; }
+  .brand-bar span { font-size: 11px; font-weight: 600; letter-spacing: 0.12em; color: var(--blue); text-transform: uppercase; }
+
+  /* CARD HEADER */
+  .card-header { display: flex; flex-direction: column; align-items: center; padding: 8px 24px 16px; gap: 8px; }
+  .avatar-wrap { position: relative; }
+  .avatar { width: 88px; height: 88px; border-radius: 50%; background: var(--blue); display: flex; align-items: center; justify-content: center; font-size: 28px; font-weight: 700; color: white; overflow: hidden; border: 3px solid white; box-shadow: 0 4px 16px rgba(0,174,255,0.25); }
+  .avatar img { width: 100%; height: 100%; object-fit: cover; }
+  .online-dot { position: absolute; bottom: 4px; right: 4px; width: 14px; height: 14px; border-radius: 50%; background: var(--green); border: 2px solid white; }
+  .card-name { font-size: 22px; font-weight: 700; text-align: center; line-height: 1.2; }
+  .card-meta { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--sub); }
+  .firm-chip { display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; border-radius: 5px; background: var(--blue); color: white; font-size: 9px; font-weight: 700; flex-shrink: 0; }
+
+  /* SAVE BUTTON */
+  .save-btn { display: flex; align-items: center; justify-content: center; gap: 8px; width: calc(100% - 48px); margin: 0 24px; padding: 15px; background: var(--blue); color: white; font-size: 16px; font-weight: 600; border-radius: 12px; border: none; cursor: pointer; transition: background 0.15s; }
+  .save-btn:active { background: var(--blue-dark); }
+
+  /* CONTACT LIST */
+  .contact-list { margin: 14px 24px 0; display: flex; flex-direction: column; border: 1px solid var(--border); border-radius: var(--radius-sm); overflow: hidden; }
+  .contact-row { display: flex; align-items: center; gap: 12px; padding: 13px 16px; background: white; border-bottom: 1px solid var(--border); cursor: pointer; text-decoration: none; color: inherit; transition: background 0.1s; }
+  .contact-row:last-child { border-bottom: none; }
+  .contact-row:active { background: #F9FAFB; }
+  .contact-icon { width: 34px; height: 34px; border-radius: 9px; background: var(--blue-bg); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .contact-info { flex: 1; min-width: 0; }
+  .contact-label { font-size: 13px; font-weight: 600; }
+  .contact-value { font-size: 12px; color: var(--sub); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .chevron { color: var(--border); flex-shrink: 0; }
+
+  /* CALENDLY EXPAND */
+  .cal-options { display: none; padding: 10px 16px; background: #F9FAFB; border-top: 1px solid var(--border); gap: 8px; flex-direction: column; }
+  .cal-options.open { display: flex; }
+  .cal-option { display: flex; align-items: center; gap: 10px; padding: 10px 12px; background: white; border: 1px solid var(--border); border-radius: 8px; font-size: 13px; font-weight: 500; cursor: pointer; text-decoration: none; color: var(--text); }
+
+  /* SOCIAL SECTION */
+  .social-section { margin: 14px 24px 0; }
+  .section-label { font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--sub); margin-bottom: 8px; }
+  .social-grid { display: flex; gap: 10px; flex-wrap: wrap; }
+  .social-pill { display: inline-flex; align-items: center; gap: 7px; padding: 8px 14px; border: 1.5px solid var(--border); border-radius: 20px; text-decoration: none; color: var(--text); font-size: 13px; font-weight: 500; background: white; transition: border-color 0.15s, background 0.15s; cursor: pointer; }
+  .social-pill:active { border-color: var(--blue); background: var(--blue-bg); }
+
+  /* LINK THUMBNAILS */
+  .thumb-section { margin: 14px 24px 0; }
+  .thumb-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .thumb-tile { display: flex; flex-direction: row; align-items: center; gap: 10px; padding: 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); text-decoration: none; color: var(--text); background: white; cursor: pointer; transition: background 0.1s; }
+  .thumb-tile:active { background: #F9FAFB; }
+  .thumb-favicon { width: 36px; height: 36px; border-radius: 8px; background: var(--blue-bg); display: flex; align-items: center; justify-content: center; overflow: hidden; flex-shrink: 0; }
+  .thumb-favicon img { width: 24px; height: 24px; object-fit: contain; }
+  .thumb-info { min-width: 0; }
+  .thumb-title { font-size: 12px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .thumb-domain { font-size: 10px; color: var(--sub); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  /* CTA BANNER */
+  .cta-banner { margin: 18px 24px 24px; background: linear-gradient(135deg, #0090D8 0%, #00AEFF 100%); border-radius: var(--radius); padding: 20px; color: white; cursor: pointer; }
+  .cta-banner:active { opacity: 0.92; }
+  .cta-eyebrow { font-size: 10px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; opacity: 0.75; margin-bottom: 6px; display: flex; align-items: center; gap: 5px; }
+  .cta-eyebrow::before { content: '●'; font-size: 6px; }
+  .cta-title { font-size: 19px; font-weight: 700; margin-bottom: 4px; }
+  .cta-sub { font-size: 13px; opacity: 0.85; margin-bottom: 16px; }
+  .cta-link { display: inline-flex; align-items: center; gap: 6px; background: white; color: var(--blue); font-size: 13px; font-weight: 600; padding: 9px 16px; border-radius: 20px; border: none; cursor: pointer; }
+
+  /* SCREEN 2 */
+  .s2-header { display: flex; align-items: center; gap: 12px; padding: 16px 20px 8px; }
+  .back-btn { width: 34px; height: 34px; border-radius: 50%; background: #F3F4F6; display: flex; align-items: center; justify-content: center; border: none; cursor: pointer; flex-shrink: 0; }
+  .s2-header-text h2 { font-size: 18px; font-weight: 700; }
+  .s2-header-text p { font-size: 13px; color: var(--sub); }
+  .offer-list { padding: 8px 20px 0; display: flex; flex-direction: column; gap: 10px; }
+  .offer-card { display: flex; align-items: flex-start; gap: 12px; border: 2px solid var(--border); border-radius: var(--radius-sm); padding: 14px; cursor: pointer; transition: border-color 0.15s, background 0.15s; }
+  .offer-card.selected { border-color: var(--blue); background: var(--blue-bg); }
+  .offer-card.hidden { display: none; }
+  .offer-icon { width: 38px; height: 38px; border-radius: 9px; background: var(--blue-bg); display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: background 0.15s; }
+  .offer-card.selected .offer-icon { background: var(--blue); }
+  .offer-card.selected .offer-icon svg { color: white; }
+  .offer-body { flex: 1; min-width: 0; }
+  .offer-title-row { display: flex; align-items: center; gap: 8px; margin-bottom: 3px; }
+  .offer-title { font-size: 14px; font-weight: 700; }
+  .offer-badge { font-size: 9px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; background: #E0F2FE; color: var(--blue-dark); padding: 2px 7px; border-radius: 20px; }
+  .offer-desc { font-size: 12px; color: var(--sub); line-height: 1.4; }
+  .offer-radio { width: 20px; height: 20px; border-radius: 50%; border: 2px solid var(--border); flex-shrink: 0; margin-top: 2px; transition: all 0.15s; display: flex; align-items: center; justify-content: center; }
+  .offer-card.selected .offer-radio { border-color: var(--blue); background: var(--blue); }
+  .offer-card.selected .offer-radio::after { content: ''; width: 8px; height: 8px; border-radius: 50%; background: white; }
+  .offer-form { padding: 20px 20px 0; display: flex; flex-direction: column; gap: 14px; }
+  .field-group { display: flex; flex-direction: column; gap: 5px; }
+  .field-label { font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--sub); }
+  .field-input { width: 100%; padding: 13px 14px; border: 1.5px solid var(--border); border-radius: 10px; font-size: 15px; font-family: var(--font); color: var(--text); background: white; outline: none; transition: border-color 0.15s; }
+  .field-input:focus { border-color: var(--blue); }
+  .field-input::placeholder { color: #9CA3AF; }
+  .consent-text { font-size: 11.5px; color: var(--sub); line-height: 1.5; padding: 0 20px; }
+  .claim-btn { margin: 16px 20px 28px; width: calc(100% - 40px); padding: 16px; background: var(--blue); color: white; font-size: 16px; font-weight: 600; border-radius: 12px; border: none; cursor: pointer; transition: background 0.15s; }
+  .claim-btn:active { background: var(--blue-dark); }
+
+  /* SCREEN 3 */
+  .s3-inner { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 40px 32px; text-align: center; }
+  .check-circle { width: 80px; height: 80px; border-radius: 50%; background: var(--blue); display: flex; align-items: center; justify-content: center; margin-bottom: 24px; animation: pop 0.4s cubic-bezier(0.34,1.56,0.64,1) both; }
+  @keyframes pop { from { transform: scale(0); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+  .s3-title { font-size: 26px; font-weight: 800; margin-bottom: 12px; }
+  .s3-sub { font-size: 15px; color: var(--sub); line-height: 1.6; margin-bottom: 32px; }
+  .confirm-list { width: 100%; display: flex; flex-direction: column; gap: 10px; }
+  .confirm-item { display: flex; align-items: center; gap: 12px; background: #F9FAFB; border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; text-align: left; }
+  .confirm-item-icon { color: var(--blue); flex-shrink: 0; }
+  .confirm-item-text { font-size: 14px; color: var(--sub); }
+  .confirm-item-text strong { color: var(--text); }
+</style>
+</head>
+<body>
+<div class="shell">
+
+<!-- ══ SCREEN 1 ══ -->
+<div class="screen active" id="screen1">
+  <div class="brand-bar">
+    <svg width="18" height="10" viewBox="0 0 18 10" fill="none"><rect x="0" y="5" width="2.5" height="5" fill="#00AEFF"/><rect x="3.5" y="3" width="2.5" height="7" fill="#00AEFF"/><rect x="7" y="4" width="2.5" height="6" fill="#00AEFF"/><rect x="10.5" y="1" width="2.5" height="9" fill="#00AEFF"/><rect x="14" y="3.5" width="2.5" height="6.5" fill="#00AEFF"/></svg>
+    <span>Financial Ruler</span>
+  </div>
+
+  <div class="card-header">
+    <div class="avatar-wrap">
+      <div class="avatar" id="s1-avatar">
+        <span id="s1-initials">TW</span>
+        <img id="s1-photo" src="" alt="" style="display:none" />
+      </div>
+      <div class="online-dot"></div>
+    </div>
+    <div class="card-name" id="s1-name">Tan Wei Ling</div>
+    <div class="card-meta">
+      <span id="s1-title-firm">Financial Advisor · Horizon Wealth</span>
+      <span class="firm-chip" id="s1-chip">HW</span>
+    </div>
+  </div>
+
+  <button class="save-btn" onclick="saveContact()">
+    <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+    Save to Contacts
+  </button>
+
+  <!-- Contact rows -->
+  <div class="contact-list" style="margin-top:14px">
+    <a class="contact-row" id="wa-row" href="#" onclick="openWA(event)">
+      <div class="contact-icon">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="#00AEFF"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.127.558 4.123 1.532 5.855L.073 23.927a.5.5 0 00.607.607l6.072-1.459A11.945 11.945 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 21.818a9.818 9.818 0 01-5.015-1.376l-.36-.214-3.727.896.912-3.638-.235-.374A9.818 9.818 0 012.182 12C2.182 6.57 6.57 2.182 12 2.182S21.818 6.57 21.818 12 17.43 21.818 12 21.818z"/></svg>
+      </div>
+      <div class="contact-info"><div class="contact-label">WhatsApp</div><div class="contact-value" id="s1-phone">+65 9123 4567</div></div>
+      <svg class="chevron" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+    </a>
+    <a class="contact-row" id="email-row" href="#" onclick="openEmail(event)">
+      <div class="contact-icon"><svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="#00AEFF" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg></div>
+      <div class="contact-info"><div class="contact-label">Email</div><div class="contact-value" id="s1-email">tanweiling@horizonwealth.sg</div></div>
+      <svg class="chevron" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+    </a>
+    <!-- LinkedIn -->
+    <a class="contact-row" id="linkedin-row" href="#" target="_blank" style="display:none">
+      <div class="contact-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="#00AEFF"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 01-2.063-2.065 2.064 2.064 0 112.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/></svg></div>
+      <div class="contact-info"><div class="contact-label">LinkedIn</div><div class="contact-value" id="s1-linkedin"></div></div>
+      <svg class="chevron" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+    </a>
+    <!-- YouTube -->
+    <a class="contact-row" id="youtube-row" href="#" target="_blank" style="display:none">
+      <div class="contact-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="#00AEFF"><path d="M23.498 6.186a3.016 3.016 0 00-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 00.502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 002.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 002.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg></div>
+      <div class="contact-info"><div class="contact-label">YouTube</div><div class="contact-value" id="s1-youtube"></div></div>
+      <svg class="chevron" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+    </a>
+    <!-- Instagram -->
+    <a class="contact-row" id="instagram-row" href="#" target="_blank" style="display:none">
+      <div class="contact-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="#00AEFF"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/></svg></div>
+      <div class="contact-info"><div class="contact-label">Instagram</div><div class="contact-value" id="s1-instagram"></div></div>
+      <svg class="chevron" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+    </a>
+    <!-- Facebook -->
+    <a class="contact-row" id="facebook-row" href="#" target="_blank" style="display:none">
+      <div class="contact-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="#00AEFF"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.994 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg></div>
+      <div class="contact-info"><div class="contact-label">Facebook</div><div class="contact-value" id="s1-facebook"></div></div>
+      <svg class="chevron" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+    </a>
+    <!-- Twitter/X -->
+    <a class="contact-row" id="twitter-row" href="#" target="_blank" style="display:none">
+      <div class="contact-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="#00AEFF"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg></div>
+      <div class="contact-info"><div class="contact-label">X (Twitter)</div><div class="contact-value" id="s1-twitter"></div></div>
+      <svg class="chevron" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+    </a>
+    <!-- Website -->
+    <a class="contact-row" id="website-row" href="#" target="_blank" style="display:none">
+      <div class="contact-icon"><svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="#00AEFF" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9"/></svg></div>
+      <div class="contact-info"><div class="contact-label">Website</div><div class="contact-value" id="s1-website"></div></div>
+      <svg class="chevron" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+    </a>
+    <!-- Book time -->
+    <div class="contact-row" onclick="toggleCalendly(this)">
+      <div class="contact-icon"><svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="#00AEFF" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></div>
+      <div class="contact-info"><div class="contact-label">Book time with me</div><div class="contact-value">Coffee chat or financial review</div></div>
+      <svg class="chevron cal-chevron" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" style="transition:transform 0.2s"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+    </div>
+    <div class="cal-options" id="cal-options">
+      <a class="cal-option" id="cal-coffee" href="#" target="_blank">
+        <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="#00AEFF" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M18 8h1a4 4 0 010 8h-1M2 8h16v9a4 4 0 01-4 4H6a4 4 0 01-4-4V8z"/></svg>
+        15-min coffee chat
+      </a>
+      <a class="cal-option" id="cal-review" href="#" target="_blank">
+        <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="#00AEFF" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+        30-min financial review
+      </a>
+    </div>
+  </div>
+
+  <!-- Link thumbnails (blog, video, article) — max 2 -->
+  <div class="thumb-section" id="thumb-section" style="display:none">
+    <div class="section-label">Featured</div>
+    <div class="thumb-grid" id="thumb-grid"></div>
+  </div>
+
+  <!-- CTA Banner -->
+  <div class="cta-banner" id="cta-banner" onclick="goToScreen2()">
+    <div class="cta-eyebrow">A gift from <span id="cta-name">Tan Wei Ling</span></div>
+    <div class="cta-title">Claim your free financial offer</div>
+    <div class="cta-sub">Takes 30 seconds. No credit card.</div>
+    <button class="cta-link">See what you can get <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg></button>
+  </div>
+</div>
+
+<!-- ══ SCREEN 2 ══ -->
+<div class="screen" id="screen2">
+  <div class="s2-header">
+    <button class="back-btn" onclick="goToScreen1()">
+      <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+    </button>
+    <div class="s2-header-text"><h2>Claim your free offer</h2><p>Pick one to get started today</p></div>
+  </div>
+
+  <div class="offer-list">
+    <!-- Each offer card hidden by default; shown only if FA has enabled it -->
+    <div class="offer-card hidden" id="offer-kyc" onclick="selectOffer(this,'kyc')" data-offer="kyc">
+      <div class="offer-icon">
+        <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="white" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+      </div>
+      <div class="offer-body">
+        <div class="offer-title-row"><span class="offer-title">Free KYC report</span><span class="offer-badge">Most popular</span></div>
+        <div class="offer-desc">A personalised snapshot of your financial health, prepared by <span class="fa-name-inline"></span></div>
+      </div>
+      <div class="offer-radio"></div>
+    </div>
+    <div class="offer-card hidden" id="offer-access" onclick="selectOffer(this,'access')" data-offer="access">
+      <div class="offer-icon" style="background:var(--blue-bg)">
+        <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="#00AEFF" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+      </div>
+      <div class="offer-body">
+        <div class="offer-title-row"><span class="offer-title">1 year free access</span></div>
+        <div class="offer-desc">Track your full finances in Financial Ruler, sponsored by <span class="fa-name-inline"></span></div>
+      </div>
+      <div class="offer-radio"></div>
+    </div>
+    <div class="offer-card hidden" id="offer-namecard" onclick="selectOffer(this,'namecard')" data-offer="namecard">
+      <div class="offer-icon" style="background:var(--blue-bg)">
+        <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="#00AEFF" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+      </div>
+      <div class="offer-body">
+        <div class="offer-title-row"><span class="offer-title">Create your own namecard</span></div>
+        <div class="offer-desc">Get your own free Financial Ruler namecard to share with your contacts</div>
+      </div>
+      <div class="offer-radio"></div>
+    </div>
+  </div>
+
+  <div class="offer-form">
+    <div class="field-group"><label class="field-label">Name</label><input class="field-input" id="f-name" type="text" placeholder="Your full name" autocomplete="name" /></div>
+    <div class="field-group"><label class="field-label">Email</label><input class="field-input" id="f-email" type="email" placeholder="your@email.com" autocomplete="email" /></div>
+    <div class="field-group"><label class="field-label">Phone</label><input class="field-input" id="f-phone" type="tel" placeholder="+65 XXXX XXXX" autocomplete="tel" /></div>
+  </div>
+  <p class="consent-text" style="margin-top:12px">By continuing, you agree to be contacted by <span id="consent-firm">Horizon Wealth</span> and Financial Ruler regarding your results.</p>
+  <button class="claim-btn" onclick="submitClaim()">Claim my offer</button>
+</div>
+
+<!-- ══ SCREEN 3 ══ -->
+<div class="screen" id="screen3">
+  <div class="brand-bar">
+    <svg width="18" height="10" viewBox="0 0 18 10" fill="none"><rect x="0" y="5" width="2.5" height="5" fill="#00AEFF"/><rect x="3.5" y="3" width="2.5" height="7" fill="#00AEFF"/><rect x="7" y="4" width="2.5" height="6" fill="#00AEFF"/><rect x="10.5" y="1" width="2.5" height="9" fill="#00AEFF"/><rect x="14" y="3.5" width="2.5" height="6.5" fill="#00AEFF"/></svg>
+    <span>Financial Ruler</span>
+  </div>
+  <div class="s3-inner">
+    <div class="check-circle">
+      <svg width="36" height="36" fill="none" viewBox="0 0 24 24" stroke="white" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+    </div>
+    <div class="s3-title">You're all set</div>
+    <div class="s3-sub"><span id="s3-fa-name">Tan Wei Ling</span> has been notified and will be in touch shortly with your <strong id="s3-offer-label">free KYC report</strong>.</div>
+    <div class="confirm-list">
+      <div class="confirm-item">
+        <svg class="confirm-item-icon" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+        <div class="confirm-item-text">Added to <strong id="s3-fa-name-2">Tan Wei Ling</strong>'s network</div>
+      </div>
+      <div class="confirm-item">
+        <svg class="confirm-item-icon" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+        <div class="confirm-item-text">Your choice: <strong id="s3-offer-label-2">Free KYC Report</strong></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</div><!-- end .shell -->
+
+<script>
+// ── FA DATA — from URL params ──────────────────────────────────────
+// All fields optional; only present fields render
+// Offer toggles: offers=kyc,access,namecard (comma-separated, controls which show)
+const p = new URLSearchParams(window.location.search)
+const FA = {
+  name:      p.get('name')      || 'Tan Wei Ling',
+  title:     p.get('title')     || 'Financial Advisor',
+  firm:      p.get('firm')      || 'Horizon Wealth',
+  phone:     p.get('phone')     || '+65 9123 4567',
+  email:     p.get('email')     || 'tanweiling@horizonwealth.sg',
+  photo:     p.get('photo')     || '',
+  // Social — each optional
+  linkedin:  p.get('linkedin')  || '',
+  youtube:   p.get('youtube')   || '',
+  instagram: p.get('instagram') || '',
+  facebook:  p.get('facebook')  || '',
+  twitter:   p.get('twitter')   || '',
+  website:   p.get('website')   || '',
+  // Calendly
+  calendly:  p.get('calendly')  || '',
+  // Link thumbnails — max 2, format: "Title|URL"
+  link1:     p.get('link1')     || '',
+  link2:     p.get('link2')     || '',
+  // Offer toggles — which CTAs to show (comma-separated)
+  // e.g. offers=kyc,namecard  or  offers=access  or  offers=kyc,access,namecard
+  offers:    p.get('offers')    || 'kyc,access,namecard',
+  faId:      p.get('fa')        || 'demo',
+}
+
+// ── HELPERS ──
+function cleanUrl(url) {
+  if (!url) return ''
+  return url.startsWith('http') ? url : 'https://' + url
+}
+function displayUrl(url) {
+  return url.replace(/https?:\/\/(www\.)?/, '').split('/').slice(0,2).join('/')
+}
+function showRow(id, href, valueId, value) {
+  if (!value) return
+  const row = document.getElementById(id)
+  if (!row) return
+  row.href = cleanUrl(href || value)
+  row.style.display = 'flex'
+  const el = document.getElementById(valueId)
+  if (el) el.textContent = displayUrl(value)
+}
+
+// ── INIT UI ──
+function initUI() {
+  // Avatar
+  const inits = FA.name.trim().split(' ').filter(Boolean).slice(0,2).map(w=>w[0]).join('')
+  document.getElementById('s1-initials').textContent = inits
+  document.getElementById('s1-chip').textContent = inits.slice(0,2)
+  if (FA.photo) {
+    const img = document.getElementById('s1-photo')
+    img.src = FA.photo; img.style.display = 'block'
+    document.getElementById('s1-initials').style.display = 'none'
+  }
+
+  // Name / meta
+  document.getElementById('s1-name').textContent = FA.name
+  document.getElementById('s1-title-firm').textContent = `${FA.title} · ${FA.firm}`
+  document.getElementById('s1-phone').textContent = FA.phone
+  document.getElementById('s1-email').textContent = FA.email
+  document.getElementById('wa-row').href = `https://wa.me/${FA.phone.replace(/\D/g,'')}`
+  document.getElementById('email-row').href = `mailto:${FA.email}`
+
+  // Social rows — only show if param set
+  showRow('linkedin-row',  FA.linkedin,  's1-linkedin',  FA.linkedin)
+  showRow('youtube-row',   FA.youtube,   's1-youtube',   FA.youtube)
+  showRow('instagram-row', FA.instagram, 's1-instagram', FA.instagram)
+  showRow('facebook-row',  FA.facebook,  's1-facebook',  FA.facebook)
+  showRow('twitter-row',   FA.twitter,   's1-twitter',   FA.twitter)
+  showRow('website-row',   FA.website,   's1-website',   FA.website)
+
+  // Calendly
+  if (FA.calendly) {
+    document.getElementById('cal-coffee').href  = cleanUrl(FA.calendly) + '?event=coffee'
+    document.getElementById('cal-review').href  = cleanUrl(FA.calendly) + '?event=review'
+  }
+
+  // Link thumbnails — max 2
+  const links = [FA.link1, FA.link2].filter(Boolean)
+  if (links.length) {
+    document.getElementById('thumb-section').style.display = 'block'
+    const grid = document.getElementById('thumb-grid')
+    links.forEach(t => {
+      const parts = t.split('|')
+      const label = parts[0]; const url = parts[1] || parts[0]
+      if (!url) return
+      const fullUrl = cleanUrl(url)
+      const domain = (() => { try { return new URL(fullUrl).hostname } catch { return '' } })()
+
+      const tile = document.createElement('a')
+      tile.className = 'thumb-tile'
+      tile.href = fullUrl; tile.target = '_blank'; tile.rel = 'noopener'
+
+      const fav = document.createElement('div')
+      fav.className = 'thumb-favicon'
+      const img = document.createElement('img')
+      img.src = `https://www.google.com/s2/favicons?domain=${domain}&sz=64`
+      img.onerror = () => { fav.innerHTML = '<svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="#00AEFF" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.1-1.1m-.757-4.9a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>' }
+      fav.appendChild(img)
+
+      const info = document.createElement('div')
+      info.className = 'thumb-info'
+      info.innerHTML = `<div class="thumb-title">${label}</div><div class="thumb-domain">${domain}</div>`
+
+      tile.appendChild(fav); tile.appendChild(info)
+      grid.appendChild(tile)
+    })
+  }
+
+  // CTA name
+  document.getElementById('cta-name').textContent = FA.name
+  document.querySelectorAll('.fa-name-inline').forEach(el => el.textContent = FA.name)
+  document.getElementById('consent-firm').textContent = FA.firm
+
+  // Offer toggles — show only enabled offers, auto-select first visible
+  const enabledOffers = FA.offers.split(',').map(s => s.trim()).filter(Boolean)
+  let firstSelected = false
+  enabledOffers.forEach(key => {
+    const card = document.getElementById('offer-' + key)
+    if (!card) return
+    card.classList.remove('hidden')
+    if (!firstSelected) {
+      card.classList.add('selected')
+      // set selected icon to blue
+      const icon = card.querySelector('.offer-icon')
+      icon.style.background = 'var(--blue)'
+      icon.querySelectorAll('svg').forEach(s => s.setAttribute('stroke', 'white'))
+      selectedOffer = key
+      firstSelected = true
+    }
+  })
+
+  // Hide CTA banner if no offers enabled
+  if (enabledOffers.length === 0) {
+    document.getElementById('cta-banner').style.display = 'none'
+  }
+
+  // Screen 3
+  document.getElementById('s3-fa-name').textContent = FA.name
+  document.getElementById('s3-fa-name-2').textContent = FA.name
+}
+
+// ── CALENDLY TOGGLE ──
+function toggleCalendly(row) {
+  const opts = document.getElementById('cal-options')
+  const chev = row.querySelector('.cal-chevron')
+  const open = opts.classList.toggle('open')
+  chev.style.transform = open ? 'rotate(180deg)' : ''
+}
+
+// ── SAVE CONTACT (vCard with socials) ──
+function saveContact() {
+  const lines = [
+    'BEGIN:VCARD', 'VERSION:3.0',
+    `FN:${FA.name}`,
+    `TITLE:${FA.title}`,
+    `ORG:${FA.firm}`,
+    `TEL;TYPE=CELL:${FA.phone}`,
+    `EMAIL:${FA.email}`,
+  ]
+  if (FA.website)   lines.push(`URL;TYPE=Website:${cleanUrl(FA.website)}`)
+  if (FA.linkedin)  lines.push(`URL;TYPE=LinkedIn:${cleanUrl(FA.linkedin)}`)
+  if (FA.youtube)   lines.push(`URL;TYPE=YouTube:${cleanUrl(FA.youtube)}`)
+  if (FA.instagram) lines.push(`URL;TYPE=Instagram:${cleanUrl(FA.instagram)}`)
+  if (FA.facebook)  lines.push(`URL;TYPE=Facebook:${cleanUrl(FA.facebook)}`)
+  if (FA.twitter)   lines.push(`URL;TYPE=Twitter:${cleanUrl(FA.twitter)}`)
+  lines.push(`URL:${window.location.href}`)
+  lines.push('END:VCARD')
+
+  const blob = new Blob([lines.join('\r\n')], { type: 'text/vcard' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url; a.download = `${FA.name.replace(/\s+/g,'_')}.vcf`
+  a.click(); URL.revokeObjectURL(url)
+}
+
+function openWA(e)    { e.preventDefault(); window.open(`https://wa.me/${FA.phone.replace(/\D/g,'')}`, '_blank') }
+function openEmail(e) { e.preventDefault(); window.location.href = `mailto:${FA.email}` }
+
+// ── SCREEN NAV ──
+function goToScreen1() {
+  document.getElementById('screen1').classList.add('active')
+  document.getElementById('screen2').classList.remove('active')
+}
+function goToScreen2() {
+  document.getElementById('screen1').classList.remove('active')
+  document.getElementById('screen2').classList.add('active')
+  window.scrollTo(0,0)
+}
+
+// ── OFFER SELECTION ──
+let selectedOffer = 'kyc'
+const OFFER_LABELS = { kyc: 'Free KYC Report', access: '1 Year Free Access', namecard: 'Free Namecard' }
+
+function selectOffer(card, key) {
+  document.querySelectorAll('.offer-card:not(.hidden)').forEach(c => {
+    c.classList.remove('selected')
+    const ic = c.querySelector('.offer-icon')
+    ic.style.background = 'var(--blue-bg)'
+    ic.querySelectorAll('svg').forEach(s => s.setAttribute('stroke', '#00AEFF'))
+  })
+  card.classList.add('selected')
+  const icon = card.querySelector('.offer-icon')
+  icon.style.background = 'var(--blue)'
+  icon.querySelectorAll('svg').forEach(s => s.setAttribute('stroke', 'white'))
+  selectedOffer = key
+}
+
+// ── SUBMIT ──
+function submitClaim() {
+  const name  = document.getElementById('f-name').value.trim()
+  const email = document.getElementById('f-email').value.trim()
+  const phone = document.getElementById('f-phone').value.trim()
+  if (!name || !email || !phone) { alert('Please fill in all fields.'); return }
+
+  // TODO: POST to CRM endpoint
+  // fetch('/api/leads', { method:'POST', headers:{'Content-Type':'application/json'},
+  //   body: JSON.stringify({ faId: FA.faId, name, email, phone, offer: selectedOffer }) })
+
+  const label = OFFER_LABELS[selectedOffer]
+  document.getElementById('s3-offer-label').textContent = label.toLowerCase()
+  document.getElementById('s3-offer-label-2').textContent = label
+  document.getElementById('screen2').classList.remove('active')
+  document.getElementById('screen3').classList.add('active')
+  window.scrollTo(0,0)
+}
+
+initUI()
+</script>
+</body>
+</html>
