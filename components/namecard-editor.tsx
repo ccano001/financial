@@ -1,5 +1,38 @@
 "use client"
 
+// ─── HANDOFF NOTES FOR JK ────────────────────────────────────────────────────
+//
+// 1. PROFILE PHOTO + FIRM LOGO on digital card
+//    profilePhoto and firmLogo are base64 data URLs — too long for URL params.
+//    JK needs an image upload endpoint that returns a short URL:
+//      POST /api/upload → { url: "https://cdn.financialruler.com/img/abc123.jpg" }
+//    Then pass as ?photo=...&firmLogo=... in the cardUrl builder (see line ~357).
+//
+// 2. LEAD SUBMISSION
+//    submitClaim() in digital-card.html has a TODO stub.
+//    JK needs: POST /api/leads { faId, name, email, phone, offer } → 200 OK
+//    This should create a lead record in the FA's CRM pipeline.
+//
+// 3. ANALYTICS / TRACKING
+//    No tracking exists yet. JK should add:
+//      POST /api/analytics { faId, eventType }
+//    eventType values: "wallpaper_download", "zoom_download", "email_download",
+//    "card_view", "contact_save", "offer_claim"
+//    Call on every download button click and on digital card page load.
+//
+// 4. BASE URL
+//    card.baseUrl is currently "http://localhost:3000/digital-card.html".
+//    JK should hardcode the production URL and remove the Base URL field from
+//    the editor UI entirely once deployed.
+//
+// 5. FEATURED LINK OG PREVIEW
+//    Link tiles in digital-card.html currently show a favicon fallback.
+//    JK should build: GET /api/og?url=... → { title, image, domain }
+//    Then auto-populate the tile thumbnail from the OG image.
+//    Reference: iMessage link preview behaviour.
+//
+// ─────────────────────────────────────────────────────────────────────────────
+
 import type React from "react"
 import { useEffect, useRef, useState } from "react"
 import NamecardWallpaper, {

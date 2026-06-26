@@ -402,7 +402,30 @@ function showRow(id, href, valueId, value) {
   if (el) el.textContent = displayUrl(value)
 }
 
-// ── INIT UI ──
+// ── HANDOFF NOTES FOR JK ──────────────────────────────────────────────────────
+//
+// 1. LEAD SUBMISSION (submitClaim)
+//    Wire the POST /api/leads call. faId comes from FA.faId (URL param).
+//    On success show screen 3. On failure show an inline error message.
+//
+// 2. PROFILE PHOTO + FIRM LOGO
+//    FA.photo and firmLogo currently come from URL params but the editor sends
+//    base64 which is too long. JK needs an upload endpoint:
+//      POST /api/upload → { url: "https://cdn..." }
+//    Pass the returned URL as ?photo=...&firmLogo=... from the editor.
+//
+// 3. FEATURED LINK THUMBNAILS (OG preview)
+//    Link tiles currently show a Google favicon fallback.
+//    Build: GET /api/og?url=... → { title, image, domain }
+//    Replace the favicon <img> with the OG image for an iMessage-style preview.
+//
+// 4. ANALYTICS
+//    Track these events: POST /api/analytics { faId, eventType }
+//    - "card_view"     → on page load
+//    - "contact_save"  → on saveContact()
+//    - "offer_claim"   → on submitClaim() success
+//
+// ──────────────────────────────────────────────────────────────────────────────
 function initUI() {
   // Avatar
   const inits = FA.name.trim().split(' ').filter(Boolean).slice(0,2).map(w=>w[0]).join('')
@@ -642,9 +665,13 @@ function submitClaim() {
 
   if (!name || !emailValid || !phone) return
 
-  // TODO: POST to CRM endpoint
-  // fetch('/api/leads', { method:'POST', headers:{'Content-Type':'application/json'},
-  //   body: JSON.stringify({ faId: FA.faId, name, email, phone, offer: selectedOffer }) })
+  // HANDOFF 1: POST lead data to CRM
+  // fetch('/api/leads', {
+  //   method: 'POST',
+  //   headers: { 'Content-Type': 'application/json' },
+  //   body: JSON.stringify({ faId: FA.faId, name, email, phone, offer: selectedOffer })
+  // })
+  // On success → show screen 3. On failure → show inline error.
 
   const label = OFFER_LABELS[selectedOffer]
   document.getElementById('s3-offer-label').textContent = label.toLowerCase()
