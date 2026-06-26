@@ -59,7 +59,7 @@ function computeNameLines(name: string, baseSize: number, wrapSize: number): { l
 
 const SIDE_PHOTO_H = 150
 
-function SideContact({ data, align }: { data: NamecardData; align: "left" | "right" }) {
+function SideContact({ data, align, textPrimary, textSub }: { data: NamecardData; align: "left" | "right"; textPrimary: string; textSub: string }) {
   const nameRef = useRef<HTMLDivElement>(null)
   const titleRef = useRef<HTMLParagraphElement>(null)
   const firmRef = useRef<HTMLParagraphElement>(null)
@@ -131,24 +131,24 @@ function SideContact({ data, align }: { data: NamecardData; align: "left" | "rig
       <div style={{ display: "flex", flexDirection: "column", alignItems, minWidth: 0, width: "100%" }}>
         <div
           ref={nameRef}
-          style={{ fontSize: nameSize, fontWeight: "bold", lineHeight: 1.15, color: "#1A1A1A", width: "100%", textAlign }}
+          style={{ fontSize: nameSize, fontWeight: "bold", lineHeight: 1.15, color: textPrimary, width: "100%", textAlign }}
         >
           {baseName.lines.map((l, i) => <div key={i}>{l}</div>)}
         </div>
-        <p ref={titleRef} style={{ margin: "4px 0 0", fontSize: titleSize, color: "#666666", textAlign, width: "100%", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+        <p ref={titleRef} style={{ margin: "4px 0 0", fontSize: titleSize, color: textSub, textAlign, width: "100%", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
           {data.jobTitle}
         </p>
-        <p ref={firmRef} style={{ margin: "3px 0 0", fontSize: firmSize, color: "#666666", textAlign, width: "100%", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+        <p ref={firmRef} style={{ margin: "3px 0 0", fontSize: firmSize, color: textSub, textAlign, width: "100%", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
           {data.firmName}
         </p>
       </div>
 
       {/* BOTTOM: phone + email — pinned to bottom via space-between, no gap */}
       <div style={{ display: "flex", flexDirection: "column", alignItems, width: "100%", minWidth: 0 }}>
-        <p style={{ margin: 0, fontSize: 12, color: "#1A1A1A", textAlign, width: "100%", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+        <p style={{ margin: 0, fontSize: 12, color: textPrimary, textAlign, width: "100%", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
           M: {data.phone}
         </p>
-        <p style={{ margin: "3px 0 0", fontSize: 12, color: "#1A1A1A", textAlign, width: "100%", wordBreak: "break-all", lineHeight: 1.2 }}>
+        <p style={{ margin: "3px 0 0", fontSize: 12, color: textPrimary, textAlign, width: "100%", wordBreak: "break-all", lineHeight: 1.2 }}>
           E: {data.email}
         </p>
       </div>
@@ -156,7 +156,7 @@ function SideContact({ data, align }: { data: NamecardData; align: "left" | "rig
   )
 }
 
-function CenterContact({ data, maxHeight }: { data: NamecardData; maxHeight: number }) {
+function CenterContact({ data, maxHeight, textPrimary, textSub }: { data: NamecardData; maxHeight: number; textPrimary: string; textSub: string }) {
   const blockRef = useRef<HTMLDivElement>(null)
   const nameRef = useRef<HTMLDivElement>(null)
   const titleRef = useRef<HTMLParagraphElement>(null)
@@ -190,6 +190,11 @@ function CenterContact({ data, maxHeight }: { data: NamecardData; maxHeight: num
       fEl.style.fontSize = `${fs}px`
       while (fs > 9 && fEl.scrollWidth > fEl.clientWidth) { fs -= 1; fEl.style.fontSize = `${fs}px` }
     }
+    // FIX: enforce matching font size — use the smaller of the two so both always match
+    const matchedSize = Math.min(ts, fs)
+    ts = matchedSize; fs = matchedSize
+    if (tEl) tEl.style.fontSize = `${ts}px`
+    if (fEl) fEl.style.fontSize = `${fs}px`
 
     const overflows = () => !!block && block.scrollHeight > maxHeight
 
@@ -225,19 +230,19 @@ function CenterContact({ data, maxHeight }: { data: NamecardData; maxHeight: num
 
   return (
     <div ref={blockRef} style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", width: "100%" }}>
-      <div ref={nameRef} style={{ fontSize: nameSize, fontWeight: "bold", lineHeight: 1.1, color: "#1A1A1A", width: "100%", textAlign: "center" }}>
+      <div ref={nameRef} style={{ fontSize: nameSize, fontWeight: "bold", lineHeight: 1.1, color: textPrimary, width: "100%", textAlign: "center" }}>
         {baseName.lines.map((l, i) => <div key={i}>{l}</div>)}
       </div>
-      <p ref={titleRef} style={{ margin: `${gaps.title}px 0 0`, fontSize: titleSize, color: "#666666", width: "100%", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", textAlign: "center" }}>
+      <p ref={titleRef} style={{ margin: `${gaps.title}px 0 0`, fontSize: titleSize, color: textSub, width: "100%", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", textAlign: "center" }}>
         {data.jobTitle}
       </p>
-      <p ref={firmRef} style={{ margin: `${gaps.firm}px 0 0`, fontSize: firmSize, color: "#666666", width: "100%", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", textAlign: "center" }}>
+      <p ref={firmRef} style={{ margin: `${gaps.firm}px 0 0`, fontSize: firmSize, color: textSub, width: "100%", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", textAlign: "center" }}>
         {data.firmName}
       </p>
-      <p ref={phoneRef} style={{ margin: `${gaps.phone}px 0 0`, fontSize: 14, color: "#1A1A1A", width: "100%", textAlign: "center" }}>
+      <p ref={phoneRef} style={{ margin: `${gaps.phone}px 0 0`, fontSize: 14, color: textPrimary, width: "100%", textAlign: "center" }}>
         M: {data.phone}
       </p>
-      <p ref={emailRef} style={{ margin: `${gaps.email}px 0 0`, fontSize: 14, color: "#1A1A1A", width: "100%", textAlign: "center", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+      <p ref={emailRef} style={{ margin: `${gaps.email}px 0 0`, fontSize: 14, color: textPrimary, width: "100%", textAlign: "center", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
         E: {data.email}
       </p>
     </div>
@@ -259,16 +264,28 @@ function PhotoBlock({ profilePhoto, displayName, size }: { profilePhoto: string 
 
 interface NamecardWallpaperProps {
   data: NamecardData
+  logoCornerColor?: string   // sampled from logo corner — used as container bg
   onEditPhoto?: () => void
   onEditLogo?: () => void
 }
 
 const NamecardWallpaper = forwardRef<HTMLDivElement, NamecardWallpaperProps>(function NamecardWallpaper(
-  { data, onEditPhoto, onEditLogo }, ref,
+  { data, logoCornerColor = "transparent", onEditPhoto, onEditLogo }, ref,
 ) {
   const isBanner = data.logoStyle === "banner"
   const group = data.groupPosition
   const isSide = group === "left" || group === "right"
+
+  // Adaptive text colors based on background luminance
+  const hex = (data.backgroundColor || "#FFFFFF").replace("#", "")
+  const r = parseInt(hex.slice(0,2)||"ff",16)
+  const g = parseInt(hex.slice(2,4)||"ff",16)
+  const b = parseInt(hex.slice(4,6)||"ff",16)
+  const luma = 0.299*r + 0.587*g + 0.114*b
+  const isDark = luma < 160
+  const textPrimary = isDark ? "#FFFFFF"           : "#1A1A1A"
+  const textSub     = isDark ? "rgba(255,255,255,0.70)" : "#666666"
+  const textMuted   = isDark ? "rgba(255,255,255,0.45)" : "#999999"
 
   const CENTER_PHOTO_H = 180
   // Photo starts below iOS clock zone (~160px)
@@ -278,7 +295,10 @@ const NamecardWallpaper = forwardRef<HTMLDivElement, NamecardWallpaperProps>(fun
   // QR: smaller so address fits below; bottom clears iOS flashlight zone
   const QR_SIZE = 200
   const SAFE_QR_BOTTOM = 708  // 844 - 100 iOS UI - 36 address zone
-  const centerQrTop = Math.min(isBanner ? 455 : 408, SAFE_QR_BOTTOM - QR_SIZE)
+  // FIX: banner+center needs more vertical room for text — push QR lower only in that case
+  const centerQrTop = isBanner
+    ? Math.min(520, SAFE_QR_BOTTOM - QR_SIZE)   // banner: more room for text block
+    : Math.min(408, SAFE_QR_BOTTOM - QR_SIZE)    // no banner: unchanged
   const qrTop = Math.min(isSide ? 460 : centerQrTop, SAFE_QR_BOTTOM - QR_SIZE)
 
   // Address: 12px gap below QR, sits above iOS UI zone
@@ -309,7 +329,7 @@ const NamecardWallpaper = forwardRef<HTMLDivElement, NamecardWallpaperProps>(fun
       {/* LOGO — TOP LEFT CIRCLE */}
       {data.logoStyle === "tl" && data.firmLogo && (
         // FIX: increased from 200→260px for more impact, offset adjusted to -65 to maintain edge bleed
-        <div onClick={() => onEditLogo?.()} title="Click to edit logo" style={{ position: "absolute", top: -65, left: -65, zIndex: 6, width: 260, height: 260, borderRadius: "50%", overflow: "hidden", background: "transparent", cursor: "pointer" }}>
+        <div onClick={() => onEditLogo?.()} title="Click to edit logo" style={{ position: "absolute", top: -65, left: -65, zIndex: 6, width: 260, height: 260, borderRadius: "50%", overflow: "hidden", background: logoCornerColor, cursor: "pointer" }}>
           <img src={data.firmLogo || "/placeholder.svg"} crossOrigin="anonymous" style={{ width: "100%", height: "100%", objectFit: "cover" }} alt="firm logo" />
         </div>
       )}
@@ -317,14 +337,14 @@ const NamecardWallpaper = forwardRef<HTMLDivElement, NamecardWallpaperProps>(fun
       {/* LOGO — TOP RIGHT CIRCLE */}
       {data.logoStyle === "tr" && data.firmLogo && (
         // FIX: increased from 200→260px for more impact, offset adjusted to -65 to maintain edge bleed
-        <div onClick={() => onEditLogo?.()} title="Click to edit logo" style={{ position: "absolute", top: -65, right: -65, zIndex: 6, width: 260, height: 260, borderRadius: "50%", overflow: "hidden", background: "transparent", cursor: "pointer" }}>
+        <div onClick={() => onEditLogo?.()} title="Click to edit logo" style={{ position: "absolute", top: -65, right: -65, zIndex: 6, width: 260, height: 260, borderRadius: "50%", overflow: "hidden", background: logoCornerColor, cursor: "pointer" }}>
           <img src={data.firmLogo || "/placeholder.svg"} crossOrigin="anonymous" style={{ width: "100%", height: "100%", objectFit: "cover" }} alt="firm logo" />
         </div>
       )}
 
       {/* LOGO — TOP BANNER: fills full width edge to edge */}
       {data.logoStyle === "banner" && data.firmLogo && (
-        <div onClick={() => onEditLogo?.()} title="Click to edit logo" style={{ position: "absolute", top: 0, left: 0, right: 0, height: 138, zIndex: 4, cursor: "pointer", overflow: "hidden" }}>
+        <div onClick={() => onEditLogo?.()} title="Click to edit logo" style={{ position: "absolute", top: 0, left: 0, right: 0, height: 138, zIndex: 4, cursor: "pointer", overflow: "hidden", background: logoCornerColor }}>
           <img src={data.firmLogo || "/placeholder.svg"} crossOrigin="anonymous" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} alt="firm logo" />
         </div>
       )}
@@ -336,7 +356,7 @@ const NamecardWallpaper = forwardRef<HTMLDivElement, NamecardWallpaperProps>(fun
             <PhotoBlock profilePhoto={data.profilePhoto} displayName={data.displayName} size="center" />
           </div>
           <div style={{ position: "absolute", top: centerNameTop, left: 24, right: 24, zIndex: 10 }}>
-            <CenterContact data={data} maxHeight={centerMaxHeight} />
+            <CenterContact data={data} maxHeight={centerMaxHeight} textPrimary={textPrimary} textSub={textSub} />
           </div>
         </>
       )}
@@ -347,14 +367,14 @@ const NamecardWallpaper = forwardRef<HTMLDivElement, NamecardWallpaperProps>(fun
           <div onClick={() => data.profilePhoto && onEditPhoto?.()} title={data.profilePhoto ? "Click to edit photo" : undefined} style={{ cursor: data.profilePhoto ? "pointer" : "default", flexShrink: 0 }}>
             <PhotoBlock profilePhoto={data.profilePhoto} displayName={data.displayName} size="side" />
           </div>
-          <SideContact data={data} align="left" />
+          <SideContact data={data} align="left" textPrimary={textPrimary} textSub={textSub} />
         </div>
       )}
 
       {/* RIGHT LAYOUT */}
       {group === "right" && (
         <div style={{ position: "absolute", top: 230, left: 24, right: 24, zIndex: 10, display: "flex", flexDirection: "row", alignItems: "flex-start", gap: 14 }}>
-          <SideContact data={data} align="right" />
+          <SideContact data={data} align="right" textPrimary={textPrimary} textSub={textSub} />
           <div onClick={() => data.profilePhoto && onEditPhoto?.()} title={data.profilePhoto ? "Click to edit photo" : undefined} style={{ cursor: data.profilePhoto ? "pointer" : "default", flexShrink: 0 }}>
             <PhotoBlock profilePhoto={data.profilePhoto} displayName={data.displayName} size="side" />
           </div>
@@ -376,7 +396,7 @@ const NamecardWallpaper = forwardRef<HTMLDivElement, NamecardWallpaperProps>(fun
           left: 24,
           right: 24,
           fontSize: data.address.length > 30 ? 14 : 16,
-          color: "#999999",
+          color: textMuted,
           textAlign: "center",
           margin: 0,
           lineHeight: 1.4,

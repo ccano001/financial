@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useRef, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import NamecardWallpaper, {
   type NamecardData,
   type LogoStyle,
@@ -54,8 +54,11 @@ interface DigitalCardSettings {
   facebook:   string; facebookOn:   boolean
   twitter:    string; twitterOn:    boolean
   website:    string; websiteOn:    boolean
-  // Calendly
-  calendly:   string
+  // Calendly — two bookings with editable labels
+  calendly1:      string
+  calendly2:      string
+  calendlyLabel1: string
+  calendlyLabel2: string
   // Featured links (label|url)
   link1Label: string; link1Url: string
   link2Label: string; link2Url: string
@@ -66,14 +69,17 @@ interface DigitalCardSettings {
 }
 
 const DEFAULT_CARD: DigitalCardSettings = {
-  baseUrl:      "https://financialruler.com/card",
+  baseUrl:      "http://localhost:3000/digital-card.html",
   linkedin:     "", linkedinOn:   false,
   youtube:      "", youtubeOn:    false,
   instagram:    "", instagramOn:  false,
   facebook:     "", facebookOn:   false,
   twitter:      "", twitterOn:    false,
   website:      "", websiteOn:    false,
-  calendly:     "",
+  calendly1:      "",
+  calendly2:      "",
+  calendlyLabel1: "15-min coffee chat",
+  calendlyLabel2: "30-min financial review",
   link1Label:   "", link1Url:     "",
   link2Label:   "", link2Url:     "",
   offerKyc:      true,
@@ -169,7 +175,7 @@ function ImageEditModal({
       const scale = baseScale * zoom; const drawW = img.width * scale; const drawH = img.height * scale
       ctx.drawImage(img, (OUT_W - drawW) / 2 + offset.x * 2, (OUT_H - drawH) / 2 + offset.y * 2, drawW, drawH)
     }
-    onApply(off.toDataURL("image/jpeg", 0.95))
+    onApply(off.toDataURL("image/png"))
   }
 
   return (
@@ -291,11 +297,46 @@ export default function NamecardEditor() {
   const [downloading, setDownloading] = useState(false)
   const [activeTab, setActiveTab] = useState<OutputTab>("wallpaper")
   const [cardEditTarget, setCardEditTarget] = useState<"profile" | "logo" | null>(null)
+  const [qrMode, setQrMode] = useState<"auto" | "custom">("auto")
+  const [logoCornerColor, setLogoCornerColor] = useState<string>("transparent")
+
+  // Sample all 4 corners of logo — if any are transparent, use transparent
+  // Otherwise use the most common corner color (handles logos with solid bg)
+  const sampleLogoCorner = (dataUrl: string) => {
+    const img = new Image()
+    img.onload = () => {
+      const canvas = document.createElement("canvas")
+      canvas.width = img.width; canvas.height = img.height
+      const ctx = canvas.getContext("2d")
+      if (!ctx) return
+      ctx.drawImage(img, 0, 0)
+      const w = img.width - 1; const h = img.height - 1
+      // Sample all 4 corners
+      const corners = [
+        ctx.getImageData(0, 0, 1, 1).data,      // top-left
+        ctx.getImageData(w, 0, 1, 1).data,      // top-right
+        ctx.getImageData(0, h, 1, 1).data,      // bottom-left
+        ctx.getImageData(w, h, 1, 1).data,      // bottom-right
+      ]
+      // If any corner is transparent → logo has transparency → use transparent bg
+      const anyTransparent = corners.some(c => c[3] < 30)
+      if (anyTransparent) {
+        setLogoCornerColor("transparent")
+        return
+      }
+      // Otherwise average all 4 corners for the background color
+      const rr = Math.round(corners.reduce((s,c) => s+c[0], 0) / 4)
+      const gg = Math.round(corners.reduce((s,c) => s+c[1], 0) / 4)
+      const bb = Math.round(corners.reduce((s,c) => s+c[2], 0) / 4)
+      setLogoCornerColor(`rgb(${rr},${gg},${bb})`)
+    }
+    img.src = dataUrl
+  }
   const [card, setCard] = useState<DigitalCardSettings>(DEFAULT_CARD)
   const updateCard = <K extends keyof DigitalCardSettings>(key: K, val: DigitalCardSettings[K]) =>
     setCard(c => ({ ...c, [key]: val }))
 
-  // Auto-generate digital card URL from profile + card settings
+  // Auto-generate digital card URL from profile + card settings — always in sync with qrValue
   const cardUrl = (() => {
     const p = new URLSearchParams()
     p.set("name",  data.displayName)
@@ -309,7 +350,8 @@ export default function NamecardEditor() {
     if (card.facebookOn   && card.facebook)   p.set("facebook",  card.facebook)
     if (card.twitterOn    && card.twitter)    p.set("twitter",   card.twitter)
     if (card.websiteOn    && card.website)    p.set("website",   card.website)
-    if (card.calendly)   p.set("calendly", card.calendly)
+    if (card.calendly1) { p.set('calendly1', card.calendly1); p.set('calLabel1', card.calendlyLabel1) }
+    if (card.calendly2) { p.set('calendly2', card.calendly2); p.set('calLabel2', card.calendlyLabel2) }
     if (card.link1Url)   p.set("link1", `${card.link1Label}|${card.link1Url}`)
     if (card.link2Url)   p.set("link2", `${card.link2Label}|${card.link2Url}`)
     const offers = [
@@ -317,9 +359,15 @@ export default function NamecardEditor() {
       card.offerAccess   && "access",
       card.offerNamecard && "namecard",
     ].filter(Boolean).join(",")
-    if (offers) p.set("offers", offers)
+    // Always set offers param — empty string becomes "none" so digital card hides CTA
+    p.set("offers", offers || "none")
     return `${card.baseUrl}?${p.toString()}`
   })()
+
+  // Auto-sync cardUrl → qrValue only when in auto mode
+  useEffect(() => {
+    if (qrMode === "auto") setData(d => ({ ...d, qrValue: cardUrl }))
+  }, [cardUrl, qrMode])
   const cardRef = useRef<HTMLDivElement>(null)
 
   const update = <K extends keyof NamecardData>(key: K, value: NamecardData[K]) =>
@@ -353,10 +401,14 @@ export default function NamecardEditor() {
 
   const TABS = [
     { value: "wallpaper" as OutputTab, label: "Lock Screen" },
-    { value: "zoom"      as OutputTab, label: "Zoom Bg" },
-    { value: "email"     as OutputTab, label: "Email Sig" },
     { value: "card"      as OutputTab, label: "Digital Card" },
+    { value: "email"     as OutputTab, label: "Email Sig" },
+    { value: "zoom"      as OutputTab, label: "Zoom Bg" },
   ]
+
+  // Auto-sync: qrValue always mirrors cardUrl unless user explicitly overrides it
+  // We use a useEffect to keep them in sync
+  // Import useEffect at top if not already there
 
   return (
     <div className="mx-auto grid max-w-6xl gap-8 px-4 py-8 lg:grid-cols-[1fr_minmax(0,420px)] lg:py-12">
@@ -365,7 +417,7 @@ export default function NamecardEditor() {
       <div className="order-2 lg:order-1">
         <div className="mb-6">
           <h1 className="text-2xl font-bold tracking-tight">Digital Namecard Builder</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Build your lock screen wallpaper, Zoom background, and email signature from one profile.</p>
+          <p className="mt-1 text-sm text-muted-foreground">Fill in your profile once — it populates your lock screen, Zoom background, email signature, and digital card automatically.</p>
         </div>
 
         <div className="grid gap-6">
@@ -383,7 +435,51 @@ export default function NamecardEditor() {
               <FieldRow id="email" label="Email" value={data.email} onChange={v => update("email", v)} />
             </div>
             <FieldRow id="address" label="Office address" value={data.address} onChange={v => update("address", v)} />
-            <FieldRow id="qrValue" label="QR code link" value={data.qrValue} placeholder="https://..." onChange={v => update("qrValue", v)} />
+            <div className="grid gap-1.5">
+              <Label>QR code</Label>
+              {/* Toggle: auto vs custom */}
+              <div style={{ display: "flex", gap: 6, marginBottom: 4 }}>
+                {(["auto", "custom"] as const).map(mode => (
+                  <button key={mode} onClick={() => {
+                    setQrMode(mode)
+                    if (mode === "auto") setData(d => ({ ...d, qrValue: cardUrl }))
+                  }} style={{
+                    flex: 1, padding: "6px 0", borderRadius: 8, fontSize: 12, fontWeight: 600,
+                    cursor: "pointer", border: "1.5px solid",
+                    borderColor: qrMode === mode ? "#00AEFF" : "#E5E7EB",
+                    background: qrMode === mode ? "#EBF7FF" : "white",
+                    color: qrMode === mode ? "#0090D8" : "#6B7280",
+                  }}>
+                    {mode === "auto" ? "Auto (Digital Card)" : "Custom QR"}
+                  </button>
+                ))}
+              </div>
+
+              {qrMode === "auto" ? (
+                <>
+                  <div className="flex gap-2">
+                    <Input id="qrValue" value={data.qrValue} readOnly
+                      style={{ fontFamily: "monospace", fontSize: 11, color: "#6B7280", background: "#F9FAFB" }} />
+                    <button onClick={() => setActiveTab("card")}
+                      style={{ flexShrink: 0, padding: "0 12px", borderRadius: 8, border: "1.5px solid #E5E7EB", background: "white", fontSize: 12, fontWeight: 600, color: "#00AEFF", cursor: "pointer", whiteSpace: "nowrap" }}>
+                      Customize →
+                    </button>
+                  </div>
+                  <p style={{ fontSize: 11, color: "#9CA3AF", margin: 0 }}>Auto-generated from your Digital Card settings</p>
+                </>
+              ) : (
+                <>
+                  <Input
+                    placeholder="Paste your Linktree, Beacons, or any URL..."
+                    value={qrMode === "custom" ? data.qrValue : ""}
+                    onChange={e => update("qrValue", e.target.value)}
+                  />
+                  <p style={{ fontSize: 11, color: "#9CA3AF", margin: 0 }}>
+                    Paste any link — the wallpaper QR will encode it. Switch back to Auto to restore your Digital Card link.
+                  </p>
+                </>
+              )}
+            </div>
             <FieldRow id="brandName" label="Wordmark" value={data.brandName} onChange={v => update("brandName", v)} />
           </section>
 
@@ -393,30 +489,13 @@ export default function NamecardEditor() {
               Media <span className="font-normal normal-case text-muted-foreground/70">(click thumbnail to edit)</span>
             </h2>
             <ImageUpload label="Profile photo" value={data.profilePhoto} onChange={v => update("profilePhoto", v)} aspectRatio={PROFILE_RATIO} />
-            <ImageUpload label="Firm logo" value={data.firmLogo} onChange={v => update("firmLogo", v)} aspectRatio={LOGO_RATIO} />
+            <ImageUpload label="Firm logo" value={data.firmLogo} onChange={v => {
+              update("firmLogo", v)
+              if (v) sampleLogoCorner(v)
+              else setLogoCornerColor("transparent")
+            }} aspectRatio={LOGO_RATIO} />
           </section>
 
-          {/* Layout — only relevant for wallpaper */}
-          <section className="grid gap-4">
-            <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Wallpaper Layout</h2>
-            <div className="grid gap-1.5">
-              <Label>Logo style</Label>
-              <SegmentedControl options={LOGO_OPTIONS} value={data.logoStyle} onChange={v => update("logoStyle", v)} />
-            </div>
-            <div className="grid gap-1.5">
-              <Label>Photo + name position</Label>
-              <SegmentedControl options={GROUP_OPTIONS} value={data.groupPosition} onChange={v => update("groupPosition", v)} />
-            </div>
-            <div className="grid gap-1.5">
-              <Label htmlFor="bgColor">Background color</Label>
-              <div className="flex items-center gap-3">
-                <input id="bgColor" type="color" value={data.backgroundColor}
-                  onChange={e => update("backgroundColor", e.target.value)}
-                  className="h-9 w-12 cursor-pointer rounded-md border border-border bg-background p-1" />
-                <span className="font-mono text-sm text-muted-foreground">{data.backgroundColor.toUpperCase()}</span>
-              </div>
-            </div>
-          </section>
         </div>
       </div>
 
@@ -443,6 +522,26 @@ export default function NamecardEditor() {
           {/* ── LOCK SCREEN ── */}
           {activeTab === "wallpaper" && (
             <>
+              {/* Wallpaper-specific controls */}
+              <div className="grid gap-4 mb-5">
+                <div className="grid gap-1.5">
+                  <Label>Logo style</Label>
+                  <SegmentedControl options={LOGO_OPTIONS} value={data.logoStyle} onChange={v => update("logoStyle", v)} />
+                </div>
+                <div className="grid gap-1.5">
+                  <Label>Photo + name position</Label>
+                  <SegmentedControl options={GROUP_OPTIONS} value={data.groupPosition} onChange={v => update("groupPosition", v)} />
+                </div>
+                <div className="grid gap-1.5">
+                  <Label htmlFor="bgColor">Background color</Label>
+                  <div className="flex items-center gap-3">
+                    <input id="bgColor" type="color" value={data.backgroundColor}
+                      onChange={e => update("backgroundColor", e.target.value)}
+                      className="h-9 w-12 cursor-pointer rounded-md border border-border bg-background p-1" />
+                    <span className="font-mono text-sm text-muted-foreground">{data.backgroundColor.toUpperCase()}</span>
+                  </div>
+                </div>
+              </div>
               <p className="mb-3 text-center text-xs font-medium uppercase tracking-wide text-muted-foreground">
                 Live preview · <span className="font-normal normal-case">tap photo or logo on card to edit</span>
               </p>
@@ -452,6 +551,7 @@ export default function NamecardEditor() {
                     <NamecardWallpaper
                       ref={cardRef}
                       data={data}
+                      logoCornerColor={logoCornerColor}
                       onEditPhoto={() => setCardEditTarget("profile")}
                       onEditLogo={() => setCardEditTarget("logo")}
                     />
@@ -468,7 +568,7 @@ export default function NamecardEditor() {
           )}
 
           {/* ── ZOOM BACKGROUND ── */}
-          {activeTab === "zoom" && <ZoomBackgroundOutput data={data} />}
+          {activeTab === "zoom" && <ZoomBackgroundOutput data={data} logoCornerColor={logoCornerColor} />}
 
           {/* ── EMAIL SIGNATURE ── */}
           {activeTab === "email" && <EmailSignatureOutput data={data} />}
@@ -521,10 +621,19 @@ export default function NamecardEditor() {
                 ))}
               </div>
 
-              {/* Calendly */}
-              <div className="grid gap-1.5">
-                <Label>Calendly URL</Label>
-                <Input value={card.calendly} onChange={e => updateCard("calendly", e.target.value)} placeholder="calendly.com/yourname" />
+              {/* Calendly — two bookings */}
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Book a Meeting</h2>
+                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                  <Label style={{ fontSize: 11 }}>Meeting 1 label</Label>
+                  <Input value={card.calendlyLabel1} onChange={e => updateCard("calendlyLabel1", e.target.value)} placeholder="15-min coffee chat" />
+                  <Input value={card.calendly1} onChange={e => updateCard("calendly1", e.target.value)} placeholder="calendly.com/yourname/coffee" />
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                  <Label style={{ fontSize: 11 }}>Meeting 2 label <span style={{ color: "#9CA3AF", fontWeight: 400 }}>(optional)</span></Label>
+                  <Input value={card.calendlyLabel2} onChange={e => updateCard("calendlyLabel2", e.target.value)} placeholder="30-min financial review" />
+                  <Input value={card.calendly2} onChange={e => updateCard("calendly2", e.target.value)} placeholder="calendly.com/yourname/review" />
+                </div>
               </div>
 
               {/* Featured links */}
@@ -581,11 +690,8 @@ export default function NamecardEditor() {
                   </Button>
                 </div>
                 <p style={{ fontSize: 11, color: "#9CA3AF", margin: 0 }}>
-                  Paste this as the QR code link in your Lock Screen tab — it will update automatically.
+                  This link is automatically set as the QR code on your Lock Screen wallpaper.
                 </p>
-                <Button onClick={() => { update("qrValue", cardUrl) }} variant="outline" size="sm" className="w-full">
-                  ↑ Sync to Lock Screen QR
-                </Button>
               </div>
 
             </div>

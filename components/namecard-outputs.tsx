@@ -56,10 +56,11 @@ const PRESETS: Record<LayoutPreset, { logo: string; info: string; qr: string }> 
   "logo-right": { logo: "tr", info: "tl", qr: "bl" },  // logo top-right, name top-left, QR bottom-left
 }
 
-function ZoomBgCanvas({ data, settings, scale }: {
+function ZoomBgCanvas({ data, settings, scale, logoCornerColor = "rgba(255,255,255,0.95)" }: {
   data: NamecardData
   settings: ZoomSettings
   scale: number
+  logoCornerColor?: string
 }) {
   const W = ZOOM_W * scale
   const H = ZOOM_H * scale
@@ -115,7 +116,7 @@ function ZoomBgCanvas({ data, settings, scale }: {
         <div style={{
           ...pos(logoC),
           width: logoW, height: logoH,
-          background: "rgba(255,255,255,0.95)",
+          background: logoCornerColor === "transparent" ? "transparent" : logoCornerColor,
           borderRadius: logoRadius,
           boxShadow: "0 2px 16px rgba(0,0,0,0.14)",
           display: "flex", alignItems: "center", justifyContent: "center",
@@ -177,7 +178,7 @@ function ZoomBgCanvas({ data, settings, scale }: {
   )
 }
 
-export function ZoomBackgroundOutput({ data }: { data: NamecardData }) {
+export function ZoomBackgroundOutput({ data, logoCornerColor = "rgba(255,255,255,0.95)" }: { data: NamecardData; logoCornerColor?: string }) {
   const exportRef = useRef<HTMLDivElement>(null)
   const [downloading, setDownloading] = useState(false)
 
@@ -304,13 +305,13 @@ export function ZoomBackgroundOutput({ data }: { data: NamecardData }) {
         border: "1px solid #E5E7EB",
         flexShrink: 0,
       }}>
-        <ZoomBgCanvas data={data} settings={settings} scale={previewScale} />
+        <ZoomBgCanvas data={data} settings={settings} scale={previewScale} logoCornerColor={logoCornerColor} />
       </div>
 
       {/* Hidden full-res export target */}
       <div style={{ position: "fixed", left: -9999, top: -9999, pointerEvents: "none" }}>
         <div ref={exportRef}>
-          <ZoomBgCanvas data={data} settings={settings} scale={1} />
+          <ZoomBgCanvas data={data} settings={settings} scale={1} logoCornerColor={logoCornerColor} />
         </div>
       </div>
 
