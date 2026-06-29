@@ -41,7 +41,8 @@ type LogoShape = "square" | "rectangle"
 interface ZoomSettings {
   logoPos:   LogoPosition
   qrPos:     QrPosition
-  logoSize:  number       // 100–700, native px on 1920 canvas
+  logoSize:  number
+  showQr:    boolean
   bgStyle:   BgStyle
   bgColor:   string
   bgColor2:  string
@@ -126,35 +127,36 @@ function ZoomBgCanvas({ data, settings, scale, logoCornerColor = "rgba(255,255,2
 
       {/* NAME + QR stacked — tight gap */}
       <div style={{ ...qrPosStyle, display: "flex", flexDirection: "column", alignItems: nameAlign === "right" ? "flex-end" : "flex-start", gap: Math.round(6 * scale), zIndex: 10 }}>
-        {/* Name — capped at 12 chars per line, matches QR width */}
+        {/* Name always visible */}
         <div style={{
           fontSize: nameSz, fontWeight: 700, color: textCol,
           lineHeight: 1.2, letterSpacing: "-0.01em",
           textShadow: textCol === "#FFFFFF" ? "0 1px 8px rgba(0,0,0,0.4)" : "none",
           textAlign: nameAlign,
-          width: qrSize + Math.round(12 * scale), // match QR box width
+          width: qrSize + Math.round(12 * scale),
           wordBreak: "break-word",
           overflowWrap: "break-word",
         }}>
           {(() => {
             const name = data.displayName.trim()
             if (name.length <= 14) return name
-            // Try to split at a space near the 14-char mark
             const splitAt = name.lastIndexOf(" ", 14)
             if (splitAt > 0) {
               return <>{name.slice(0, splitAt)}<br />{name.slice(splitAt + 1)}</>
             }
-            // No space — hard split at 14
             return <>{name.slice(0, 14)}<br />{name.slice(14, 28)}</>
           })()}
         </div>
-        <div style={{
-          background: "white", padding: Math.round(6 * scale),
-          borderRadius: Math.round(10 * scale),
-          boxShadow: "0 2px 12px rgba(0,0,0,0.15)", display: "inline-flex",
-        }}>
-          <QRCodeSVG value={data.qrValue || " "} size={qrSize} level="H" />
-        </div>
+        {/* QR code — togglable */}
+        {settings.showQr && (
+          <div style={{
+            background: "white", padding: Math.round(6 * scale),
+            borderRadius: Math.round(10 * scale),
+            boxShadow: "0 2px 12px rgba(0,0,0,0.15)", display: "inline-flex",
+          }}>
+            <QRCodeSVG value={data.qrValue || " "} size={qrSize} level="H" />
+          </div>
+        )}
       </div>
 
       {/* BRAND WATERMARK */}
@@ -180,6 +182,7 @@ export function ZoomBackgroundOutput({ data, logoCornerColor = "rgba(255,255,255
     logoPos:   "left",
     qrPos:     "right",
     logoSize:  500,
+    showQr:    true,
     bgStyle:   "solid",
     bgColor:   data.backgroundColor && data.backgroundColor !== "#FFFFFF" ? data.backgroundColor : "#1E3A5F",
     bgColor2:  "#00AEFF",
@@ -261,22 +264,27 @@ export function ZoomBackgroundOutput({ data, logoCornerColor = "rgba(255,255,255
         </div>
       </div>
 
-      {/* ── QR POSITION ── */}
+      {/* ── QR CODE ── */}
       <div style={{ border: "1px solid #E5E7EB", borderRadius: 12, overflow: "hidden" }}>
-        <div style={{ padding: "12px 16px", background: "#F9FAFB", borderBottom: "1px solid #E5E7EB" }}>
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">QR Code Position</h2>
+        <div style={{ padding: "12px 16px", background: "#F9FAFB", borderBottom: "1px solid #E5E7EB", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">QR Code</h2>
+          <button onClick={() => set("showQr", !settings.showQr)} style={{ width: 36, height: 20, borderRadius: 10, border: "none", cursor: "pointer", background: settings.showQr ? "#00AEFF" : "#E5E7EB", position: "relative", transition: "background 0.2s" }}>
+            <span style={{ position: "absolute", top: 2, width: 16, height: 16, borderRadius: "50%", background: "white", transition: "left 0.2s", left: settings.showQr ? 18 : 2 }} />
+          </button>
         </div>
-        <div style={{ padding: "12px 16px", display: "flex", gap: 8 }}>
-          {(["left","right"] as QrPosition[]).map(p => (
-            <button key={p} onClick={() => set("qrPos", p)} style={{
-              flex: 1, padding: "8px", borderRadius: 10, cursor: "pointer", border: "1.5px solid",
-              borderColor: settings.qrPos === p ? "#00AEFF" : "#E5E7EB",
-              background: settings.qrPos === p ? "#EBF7FF" : "white",
-              fontSize: 13, fontWeight: settings.qrPos === p ? 600 : 400,
-              color: settings.qrPos === p ? "#0090D8" : "#111827", textTransform: "capitalize",
-            }}>{p === "left" ? "← Bottom left" : "Bottom right →"}</button>
-          ))}
-        </div>
+        {settings.showQr && (
+          <div style={{ padding: "12px 16px", display: "flex", gap: 8 }}>
+            {(["left","right"] as QrPosition[]).map(p => (
+              <button key={p} onClick={() => set("qrPos", p)} style={{
+                flex: 1, padding: "8px", borderRadius: 10, cursor: "pointer", border: "1.5px solid",
+                borderColor: settings.qrPos === p ? "#00AEFF" : "#E5E7EB",
+                background: settings.qrPos === p ? "#EBF7FF" : "white",
+                fontSize: 13, fontWeight: settings.qrPos === p ? 600 : 400,
+                color: settings.qrPos === p ? "#0090D8" : "#111827", textTransform: "capitalize",
+              }}>{p === "left" ? "← Bottom left" : "Bottom right →"}</button>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* ── LOGO FRAME ── */}
@@ -377,6 +385,26 @@ export function ZoomBackgroundOutput({ data, logoCornerColor = "rgba(255,255,255
         </div>
       </div>
 
+      {/* ── HOW TO USE ── */}
+      <div style={{ border: "1px solid #E5E7EB", borderRadius: 12, overflow: "hidden" }}>
+        <div style={{ padding: "12px 16px", background: "#F9FAFB", borderBottom: "1px solid #E5E7EB" }}>
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">How to set as Zoom background</h2>
+        </div>
+        <div style={{ padding: "14px 16px", display: "flex", flexDirection: "column", gap: 10 }}>
+          {[
+            { n: 1, text: "Download the background image below." },
+            { n: 2, text: "In Zoom: click the arrow next to Stop Video → Virtual Background → click + to upload the image." },
+            { n: 3, text: "Your name and QR code will be visible to meeting participants in the bottom corner." },
+            { n: 4, text: "Tip: for best results, use a plain background and ensure good lighting on your face." },
+          ].map(s => (
+            <div key={s.n} style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
+              <div style={{ width: 20, height: 20, borderRadius: "50%", background: "#EBF7FF", color: "#00AEFF", fontSize: 11, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 1 }}>{s.n}</div>
+              <p style={{ fontSize: 12, color: "#374151", margin: 0, lineHeight: 1.6 }}>{s.text}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+
       <Button onClick={handleDownload} disabled={downloading} size="lg">
         <Download className="size-4" />
         {downloading ? "Generating…" : "Download Zoom Background (1920×1080)"}
@@ -392,7 +420,7 @@ export function ZoomBackgroundOutput({ data, logoCornerColor = "rgba(255,255,255
 const SIG_W = 640
 const SIG_H = 120  // fixed height — all content must fit within this
 
-function EmailSigCanvas({ data, accentColor }: { data: NamecardData; accentColor: string }) {
+function EmailSigCanvas({ data, accentColor, showQr = true }: { data: NamecardData; accentColor: string; showQr?: boolean }) {
   const PHOTO_SIZE = 76
   const pad = 12
 
@@ -460,25 +488,28 @@ function EmailSigCanvas({ data, accentColor }: { data: NamecardData; accentColor
           <img src={data.firmLogo} crossOrigin="anonymous" alt="logo"
             style={{ maxWidth: 100, maxHeight: 40, objectFit: "contain", display: "block" }} />
         )}
-        <div style={{ background: "white", padding: 2, border: "1px solid #E5E7EB", borderRadius: 4 }}>
-          <QRCodeSVG value={data.qrValue || " "} size={52} level="M" />
-        </div>
+        {showQr && (
+          <div style={{ background: "white", padding: 2, border: "1px solid #E5E7EB", borderRadius: 4 }}>
+            <QRCodeSVG value={data.qrValue || " "} size={52} level="M" />
+          </div>
+        )}
       </div>
     </div>
   )
 }
 
 export function EmailSignatureOutput({ data }: { data: NamecardData }) {
-  const exportRef = useRef<HTMLDivElement>(null) // full-size hidden element for download
+  const exportRef = useRef<HTMLDivElement>(null)
   const [downloading, setDownloading] = useState(false)
   const [accentColor, setAccentColor] = useState("#00AEFF")
+  const [showQr, setShowQr] = useState(true)
 
   const handleDownload = async () => {
     const el = exportRef.current
     if (!el) return
     setDownloading(true)
     try {
-      const canvas = await captureElement(el, 3) // 3x pixelRatio on native 640px = crisp output
+      const canvas = await captureElement(el, 3)
       await downloadCanvas(canvas, `EmailSig_${data.displayName.replace(/\s+/g,"_")}.png`)
     } finally {
       setDownloading(false)
@@ -500,7 +531,18 @@ export function EmailSignatureOutput({ data }: { data: NamecardData }) {
         </div>
       </div>
 
-      {/* ── PREVIEW — scaled down for display ── */}
+      {/* ── QR TOGGLE ── */}
+      <div style={{ border: "1px solid #E5E7EB", borderRadius: 12, overflow: "hidden" }}>
+        <div style={{ padding: "12px 16px", background: "#F9FAFB", borderBottom: "1px solid #E5E7EB", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">QR Code</h2>
+          <button onClick={() => setShowQr(v => !v)} style={{ width: 36, height: 20, borderRadius: 10, border: "none", cursor: "pointer", background: showQr ? "#00AEFF" : "#E5E7EB", position: "relative", transition: "background 0.2s" }}>
+            <span style={{ position: "absolute", top: 2, width: 16, height: 16, borderRadius: "50%", background: "white", transition: "left 0.2s", left: showQr ? 18 : 2 }} />
+          </button>
+        </div>
+        {!showQr && <p style={{ fontSize: 11, color: "#9CA3AF", margin: 0, padding: "10px 16px" }}>QR code hidden — logo only in the right column.</p>}
+      </div>
+
+      {/* ── PREVIEW ── */}
       <div style={{ border: "1px solid #E5E7EB", borderRadius: 12, overflow: "hidden" }}>
         <div style={{ padding: "12px 16px", background: "#F9FAFB", borderBottom: "1px solid #E5E7EB" }}>
           <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Preview</h2>
@@ -508,19 +550,36 @@ export function EmailSignatureOutput({ data }: { data: NamecardData }) {
         <div style={{ padding: "16px" }}>
           <div style={{ width: 390, height: Math.round(SIG_H * (390 / SIG_W)), overflow: "hidden", borderRadius: 8 }}>
             <div style={{ transformOrigin: "top left", transform: `scale(${390 / SIG_W})`, width: SIG_W }}>
-              <EmailSigCanvas data={data} accentColor={accentColor} />
+              <EmailSigCanvas data={data} accentColor={accentColor} showQr={showQr} />
             </div>
           </div>
-          <p style={{ fontSize: 11, color: "#9CA3AF", margin: "10px 0 0", lineHeight: 1.5 }}>
-            Download the PNG then insert it as an image in Gmail or Outlook. Link it to your card URL so clicks go to your digital card.
-          </p>
         </div>
       </div>
 
-      {/* Hidden full-size export target — never scaled, captures at native 640px */}
+      {/* ── HOW TO USE ── */}
+      <div style={{ border: "1px solid #E5E7EB", borderRadius: 12, overflow: "hidden" }}>
+        <div style={{ padding: "12px 16px", background: "#F9FAFB", borderBottom: "1px solid #E5E7EB" }}>
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">How to use this</h2>
+        </div>
+        <div style={{ padding: "14px 16px", display: "flex", flexDirection: "column", gap: 10 }}>
+          {[
+            { n: 1, text: "Copy your card link from the Digital Card tab above, then click Download below." },
+            { n: 2, text: "In Gmail: go to Settings → See all settings → Signature. Click the image icon, upload the PNG. Then select the image and click the link icon to paste your card URL." },
+            { n: 3, text: "In Outlook: go to New Email → Signature → Edit. Insert the PNG as a picture, right-click it, and select Hyperlink to paste your card URL." },
+            { n: 4, text: "Anyone who clicks the signature image goes directly to your digital card." },
+          ].map(s => (
+            <div key={s.n} style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
+              <div style={{ width: 20, height: 20, borderRadius: "50%", background: "#EBF7FF", color: "#00AEFF", fontSize: 11, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 1 }}>{s.n}</div>
+              <p style={{ fontSize: 12, color: "#374151", margin: 0, lineHeight: 1.6 }}>{s.text}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Hidden full-size export target */}
       <div style={{ position: "fixed", left: -9999, top: -9999, pointerEvents: "none" }}>
         <div ref={exportRef}>
-          <EmailSigCanvas data={data} accentColor={accentColor} />
+          <EmailSigCanvas data={data} accentColor={accentColor} showQr={showQr} />
         </div>
       </div>
 

@@ -99,10 +99,16 @@ interface DigitalCardSettings {
   // Featured links (label|url)
   link1Label: string; link1Url: string
   link2Label: string; link2Url: string
-  // Offer toggles
+  // Offer toggles + editable copy
   offerKyc:         boolean
+  offerKycTitle:    string
+  offerKycDesc:     string
   offerAccess:      boolean
+  offerAccessTitle: string
+  offerAccessDesc:  string
   offerNamecard:    boolean
+  offerNamecardTitle: string
+  offerNamecardDesc:  string
   offerCustomOn:    boolean
   offerCustomLabel: string
   offerCustomUrl:   string
@@ -123,12 +129,18 @@ const DEFAULT_CARD: DigitalCardSettings = {
   calendlyLabel2: "30-min financial review",
   link1Label:   "", link1Url:     "",
   link2Label:   "", link2Url:     "",
-  offerKyc:         true,
-  offerAccess:      true,
-  offerNamecard:    true,
-  offerCustomOn:    false,
-  offerCustomLabel: "",
-  offerCustomUrl:   "",
+  offerKyc:           true,
+  offerKycTitle:      "Free Personalized Financial Appraisal",
+  offerKycDesc:       "This is what I do for all my high net worth clients. Claim yours free.",
+  offerAccess:        true,
+  offerAccessTitle:   "Free 1 Year Access to Financial Ruler",
+  offerAccessDesc:    "Get free access to FinancialRuler for 1 year to track and grow your finances.",
+  offerNamecard:      true,
+  offerNamecardTitle: "Free Digital Namecard",
+  offerNamecardDesc:  "Get your own free digital namecard and share your contact the modern way.",
+  offerCustomOn:      false,
+  offerCustomLabel:   "",
+  offerCustomUrl:     "",
 }
 
 // ─── IMAGE CROP MODAL ────────────────────────────────────────────
@@ -424,11 +436,22 @@ export default function NamecardEditor() {
       card.offerNamecard && "namecard",
       card.offerCustomOn && card.offerCustomLabel && "custom",
     ].filter(Boolean).join(",")
+    if (card.offerKyc) {
+      p.set("kycTitle", card.offerKycTitle)
+      p.set("kycDesc",  card.offerKycDesc)
+    }
+    if (card.offerAccess) {
+      p.set("accessTitle", card.offerAccessTitle)
+      p.set("accessDesc",  card.offerAccessDesc)
+    }
+    if (card.offerNamecard) {
+      p.set("namecardTitle", card.offerNamecardTitle)
+      p.set("namecardDesc",  card.offerNamecardDesc)
+    }
     if (card.offerCustomOn && card.offerCustomLabel) {
       p.set("offerCustomLabel", card.offerCustomLabel)
       if (card.offerCustomUrl) p.set("offerCustomUrl", card.offerCustomUrl)
     }
-    // Always set offers param — empty string becomes "none" so digital card hides CTA
     p.set("offers", offers || "none")
     return `${card.baseUrl}?${p.toString()}`
   })()
@@ -708,7 +731,26 @@ export default function NamecardEditor() {
                   </div>
                 </div>
               </div>
-              <div className="mt-4">
+              <div className="mt-4" style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {/* Instructions */}
+                <div style={{ border: "1px solid #E5E7EB", borderRadius: 12, overflow: "hidden" }}>
+                  <div style={{ padding: "12px 16px", background: "#F9FAFB", borderBottom: "1px solid #E5E7EB" }}>
+                    <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">How to set as wallpaper</h2>
+                  </div>
+                  <div style={{ padding: "14px 16px", display: "flex", flexDirection: "column", gap: 10 }}>
+                    {[
+                      { n: 1, text: "Download the wallpaper image below." },
+                      { n: 2, text: "iPhone: Open Photos → find the image → tap Share → Use as Wallpaper → set Lock Screen." },
+                      { n: 3, text: "Android: Open Gallery → long-press the image → Set as wallpaper → Lock screen." },
+                      { n: 4, text: "When prospects ask for your contact, show your lock screen and let them scan the QR code." },
+                    ].map(s => (
+                      <div key={s.n} style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
+                        <div style={{ width: 20, height: 20, borderRadius: "50%", background: "#EBF7FF", color: "#00AEFF", fontSize: 11, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 1 }}>{s.n}</div>
+                        <p style={{ fontSize: 12, color: "#374151", margin: 0, lineHeight: 1.6 }}>{s.text}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
                 <Button onClick={handleDownload} disabled={downloading} size="lg" className="w-full">
                   <Download className="size-4" />
                   {downloading ? "Generating…" : "Download Wallpaper"}
@@ -874,21 +916,24 @@ export default function NamecardEditor() {
                   <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Offers to Show</h2>
                 </div>
                 <div style={{ padding: "12px 16px", display: "flex", flexDirection: "column", gap: 8 }}>
-                  <p style={{ fontSize: 11, color: "#9CA3AF", margin: 0 }}>These appear as claimable offers on your digital card. Toggle on the ones you want to show.</p>
+                  <p style={{ fontSize: 11, color: "#9CA3AF", margin: 0 }}>These appear as claimable offers on your digital card. Toggle on to enable and edit the copy.</p>
                   {([
-                    { key: "offerKyc"      as const, label: "Free Personalized Financial Appraisal", desc: "This is what I do for all my high net worth clients. They claim theirs free." },
-                    { key: "offerAccess"   as const, label: "Free 1 Year Access",                    desc: "You sponsor the prospect's free access to FinancialRuler for 1 year." },
-                    { key: "offerNamecard" as const, label: "Free Namecard",                         desc: "The prospect gets their own free FinancialRuler digital namecard." },
+                    { key: "offerKyc"      as const, titleKey: "offerKycTitle"      as const, descKey: "offerKycDesc"      as const },
+                    { key: "offerAccess"   as const, titleKey: "offerAccessTitle"   as const, descKey: "offerAccessDesc"   as const },
+                    { key: "offerNamecard" as const, titleKey: "offerNamecardTitle" as const, descKey: "offerNamecardDesc" as const },
                   ]).map(o => (
-                    <div key={o.key} style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "10px 12px", border: "1.5px solid", borderColor: card[o.key] ? "#00AEFF" : "#E5E7EB", borderRadius: 10, background: card[o.key] ? "#EBF7FF" : "white", transition: "all 0.15s", cursor: "pointer" }}
-                      onClick={() => updateCard(o.key, !card[o.key])}>
-                      <button style={{ width: 36, height: 20, borderRadius: 10, border: "none", cursor: "pointer", flexShrink: 0, marginTop: 2, background: card[o.key] ? "#00AEFF" : "#E5E7EB", position: "relative", transition: "background 0.2s" }}>
-                        <span style={{ position: "absolute", top: 2, width: 16, height: 16, borderRadius: "50%", background: "white", transition: "left 0.2s", left: card[o.key] ? 18 : 2 }} />
-                      </button>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: 13, fontWeight: 600, color: card[o.key] ? "#0090D8" : "#111827" }}>{o.label}</div>
-                        <div style={{ fontSize: 11, color: "#9CA3AF", marginTop: 2, lineHeight: 1.5 }}>{o.desc}</div>
+                    <div key={o.key} style={{ border: "1.5px solid", borderColor: card[o.key] ? "#00AEFF" : "#E5E7EB", borderRadius: 10, overflow: "hidden", background: card[o.key] ? "#EBF7FF" : "white", transition: "all 0.15s" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", cursor: "pointer" }} onClick={() => updateCard(o.key, !card[o.key])}>
+                        <button style={{ width: 36, height: 20, borderRadius: 10, border: "none", cursor: "pointer", flexShrink: 0, background: card[o.key] ? "#00AEFF" : "#E5E7EB", position: "relative", transition: "background 0.2s" }}>
+                          <span style={{ position: "absolute", top: 2, width: 16, height: 16, borderRadius: "50%", background: "white", transition: "left 0.2s", left: card[o.key] ? 18 : 2 }} />
+                        </button>
+                        <span style={{ fontSize: 13, fontWeight: 600, color: card[o.key] ? "#0090D8" : "#6B7280" }}>{card[o.titleKey]}</span>
                       </div>
+                      {card[o.key] && (
+                        <div style={{ padding: "0 12px 12px", display: "flex", flexDirection: "column", gap: 6 }} onClick={e => e.stopPropagation()}>
+                          <Input value={card[o.descKey]} onChange={e => updateCard(o.descKey, e.target.value)} placeholder="Description shown to prospect" style={{ fontSize: 12 }} />
+                        </div>
+                      )}
                     </div>
                   ))}
 
@@ -913,6 +958,26 @@ export default function NamecardEditor() {
                       </div>
                     )}
                   </div>
+                </div>
+              </div>
+
+              {/* ── HOW TO SHARE ── */}
+              <div style={{ border: "1px solid #E5E7EB", borderRadius: 12, overflow: "hidden" }}>
+                <div style={{ padding: "12px 16px", background: "#F9FAFB", borderBottom: "1px solid #E5E7EB" }}>
+                  <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">How to share your digital card</h2>
+                </div>
+                <div style={{ padding: "14px 16px", display: "flex", flexDirection: "column", gap: 10 }}>
+                  {[
+                    { n: 1, text: "Copy your card link from the 'Your Card Link' section at the top of this tab." },
+                    { n: 2, text: "Share the link directly via WhatsApp, email, or any messaging app — prospects can open it instantly on any device." },
+                    { n: 3, text: "Your lock screen wallpaper QR code automatically links to this card — prospects scan it to view your full profile and claim an offer." },
+                    { n: 4, text: "When someone claims an offer, their name, email, and phone are sent to you as a lead." },
+                  ].map(s => (
+                    <div key={s.n} style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
+                      <div style={{ width: 20, height: 20, borderRadius: "50%", background: "#EBF7FF", color: "#00AEFF", fontSize: 11, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 1 }}>{s.n}</div>
+                      <p style={{ fontSize: 12, color: "#374151", margin: 0, lineHeight: 1.6 }}>{s.text}</p>
+                    </div>
+                  ))}
                 </div>
               </div>
 

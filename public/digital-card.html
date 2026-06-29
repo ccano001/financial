@@ -272,7 +272,7 @@
       </div>
       <div class="offer-body">
         <div class="offer-title-row"><span class="offer-title">1 year free access</span></div>
-        <div class="offer-desc">Track your full finances in Financial Ruler, sponsored by <span class="fa-name-inline"></span></div>
+        <div class="offer-desc">Get free access to FinancialRuler for 1 year to track and grow your finances</div>
       </div>
       <div class="offer-radio"></div>
     </div>
@@ -282,7 +282,7 @@
       </div>
       <div class="offer-body">
         <div class="offer-title-row"><span class="offer-title">Create your own namecard</span></div>
-        <div class="offer-desc">Get your own free Financial Ruler namecard to share with your contacts</div>
+        <div class="offer-desc">Get your own free digital namecard and share your contact the modern way</div>
       </div>
       <div class="offer-radio"></div>
     </div>
@@ -539,6 +539,24 @@ function initUI() {
   // Offer toggles — show only enabled offers, auto-select first visible
   const enabledOffers = FA.offers === 'none' ? [] : FA.offers.split(',').map(s => s.trim()).filter(Boolean)
 
+  // Apply custom titles and descs from URL params
+  const offerMeta = {
+    kyc:      { titleId: null,                  descEl: document.querySelector('#offer-kyc .offer-desc'),   titleEl: document.querySelector('#offer-kyc .offer-title') },
+    access:   { titleId: null,                  descEl: document.querySelector('#offer-access .offer-desc'), titleEl: document.querySelector('#offer-access .offer-title') },
+    namecard: { titleId: null,                  descEl: document.querySelector('#offer-namecard .offer-desc'), titleEl: document.querySelector('#offer-namecard .offer-title') },
+  }
+  if (p.get('kycTitle') && offerMeta.kyc.titleEl)      offerMeta.kyc.titleEl.textContent      = p.get('kycTitle')
+  if (p.get('kycDesc') && offerMeta.kyc.descEl)        offerMeta.kyc.descEl.textContent        = p.get('kycDesc')
+  if (p.get('accessTitle') && offerMeta.access.titleEl) offerMeta.access.titleEl.textContent   = p.get('accessTitle')
+  if (p.get('accessDesc') && offerMeta.access.descEl)   offerMeta.access.descEl.textContent    = p.get('accessDesc')
+  if (p.get('namecardTitle') && offerMeta.namecard.titleEl) offerMeta.namecard.titleEl.textContent = p.get('namecardTitle')
+  if (p.get('namecardDesc') && offerMeta.namecard.descEl)   offerMeta.namecard.descEl.textContent  = p.get('namecardDesc')
+
+  // Also update OFFER_LABELS for screen 3 confirmation
+  if (p.get('kycTitle'))      OFFER_LABELS.kyc      = p.get('kycTitle')
+  if (p.get('accessTitle'))   OFFER_LABELS.access   = p.get('accessTitle')
+  if (p.get('namecardTitle')) OFFER_LABELS.namecard = p.get('namecardTitle')
+
   // Custom offer — set label and optional link
   if (enabledOffers.includes('custom')) {
     const customLabel = p.get('offerCustomLabel') || 'Special Offer'
@@ -546,7 +564,6 @@ function initUI() {
     document.getElementById('offer-custom-label').textContent = customLabel
     OFFER_LABELS.custom = customLabel
     if (customUrl) {
-      // Make the offer card link out if URL provided
       const card = document.getElementById('offer-custom')
       card.dataset.url = customUrl
     }
