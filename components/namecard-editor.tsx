@@ -59,6 +59,9 @@ const DEFAULT_DATA: NamecardData = {
   profilePhoto: null,
   firmLogo: null,
   backgroundColor: "#FFFFFF",
+  backgroundImage: null,
+  fontColor: null,
+  photoShape: "portrait" as const,
   logoStyle: "banner",
   groupPosition: "center",
   qrValue: "https://financialruler.com/meet/demo",
@@ -66,9 +69,9 @@ const DEFAULT_DATA: NamecardData = {
 }
 
 const LOGO_OPTIONS: { value: LogoStyle; label: string }[] = [
-  { value: "tl", label: "Top left circle" },
-  { value: "tr", label: "Top right circle" },
+  { value: "tl",     label: "Top left circle" },
   { value: "banner", label: "Top banner" },
+  { value: "tr",     label: "Top right circle" },
 ]
 
 const GROUP_OPTIONS: { value: GroupPosition; label: string }[] = [
@@ -80,6 +83,7 @@ const GROUP_OPTIONS: { value: GroupPosition; label: string }[] = [
 // ─── DIGITAL CARD SETTINGS ──────────────────────────────────────
 interface DigitalCardSettings {
   baseUrl:    string
+  slug:       string
   // Social toggles
   linkedin:   string; linkedinOn:   boolean
   youtube:    string; youtubeOn:    boolean
@@ -106,6 +110,7 @@ interface DigitalCardSettings {
 
 const DEFAULT_CARD: DigitalCardSettings = {
   baseUrl:      "http://localhost:3000/digital-card.html",
+  slug:         "",
   linkedin:     "", linkedinOn:   false,
   youtube:      "", youtubeOn:    false,
   instagram:    "", instagramOn:  false,
@@ -242,7 +247,7 @@ function ImageEditModal({
           <>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
               <ZoomOut size={14} color="#666" />
-              <input type="range" min={1} max={3} step={0.01} value={zoom} onChange={e => { setZoom(parseFloat(e.target.value)); drawPreview() }} style={{ flex: 1 }} />
+              <input type="range" min={0.5} max={3} step={0.01} value={zoom} onChange={e => { setZoom(parseFloat(e.target.value)); drawPreview() }} style={{ flex: 1 }} />
               <ZoomIn size={14} color="#666" />
             </div>
             <p style={{ margin: 0, fontSize: 11, color: "#999", textAlign: "center" }}>Drag to reposition · scroll slider to zoom</p>
@@ -276,6 +281,7 @@ function ImageUpload({ label, value, onChange, aspectRatio, onDetectRatio }: {
 }) {
   const inputRef = useRef<HTMLInputElement>(null)
   const [editSrc, setEditSrc] = useState<string | null>(null)
+  const [originalSrc, setOriginalSrc] = useState<string | null>(null)
   const [resolvedRatio, setResolvedRatio] = useState(aspectRatio)
 
   const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -283,8 +289,8 @@ function ImageUpload({ label, value, onChange, aspectRatio, onDetectRatio }: {
     const reader = new FileReader()
     reader.onload = () => {
       const dataUrl = reader.result as string
+      setOriginalSrc(dataUrl) // always keep raw original for re-editing
       if (onDetectRatio) {
-        // Measure image first, let parent update logoStyle, get back correct crop ratio
         const img = new Image()
         img.onload = () => {
           const cropRatio = onDetectRatio(img.width / img.height)
@@ -310,11 +316,11 @@ function ImageUpload({ label, value, onChange, aspectRatio, onDetectRatio }: {
         </Button>
         {value && (
           <>
-            <button type="button" onClick={() => setEditSrc(value)} style={{ padding: 0, background: "none", border: "none", cursor: "pointer" }}>
+            <button type="button" onClick={() => setEditSrc(originalSrc || value)} style={{ padding: 0, background: "none", border: "none", cursor: "pointer" }}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={value} alt={`${label} preview`} className="size-9 rounded-md border border-border object-cover hover:opacity-80 transition-opacity" title="Click to edit" />
+              <img src={value} alt={`${label} preview`} className="size-9 rounded-md border border-border object-cover hover:opacity-80 transition-opacity" title="Click to re-edit" />
             </button>
-            <Button type="button" variant="ghost" size="sm" onClick={() => onChange(null)}>
+            <Button type="button" variant="ghost" size="sm" onClick={() => { onChange(null); setOriginalSrc(null) }}>
               <X className="size-4" />Remove
             </Button>
           </>
@@ -401,6 +407,7 @@ export default function NamecardEditor() {
     p.set("firm",  data.firmName)
     p.set("phone", data.phone)
     p.set("email", data.email)
+    if (card.slug) p.set("slug", card.slug)
     if (card.linkedinOn   && card.linkedin)   p.set("linkedin",  card.linkedin)
     if (card.youtubeOn    && card.youtube)    p.set("youtube",   card.youtube)
     if (card.instagramOn  && card.instagram)  p.set("instagram", card.instagram)
@@ -564,18 +571,46 @@ export default function NamecardEditor() {
           {/* Media */}
           <section className="grid gap-4">
             <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-              Media <span className="font-normal normal-case text-muted-foreground/70">(click thumbnail to edit)</span>
+              Media <span className="font-normal normal-case text-muted-foreground/70">(click thumbnail to re-edit)</span>
             </h2>
-            <ImageUpload label="Profile photo" value={data.profilePhoto} onChange={v => update("profilePhoto", v)} aspectRatio={PROFILE_RATIO} />
-            <ImageUpload label="Firm logo" value={data.firmLogo} onChange={v => {
-              update("firmLogo", v)
-              if (v) sampleLogoCorner(v)
-              else setLogoCornerColor("transparent")
-            }} aspectRatio={LOGO_RATIO} onDetectRatio={imgRatio => {
-              const isWide = imgRatio > 1.6
-              update("logoStyle", isWide ? "banner" : "tl")
-              return isWide ? 390 / 138 : 1
-            }} />
+
+            {/* Profile photo */}
+            <div className="grid gap-2">
+              <Label className="text-xs text-muted-foreground uppercase tracking-wide">Profile photo</Label>
+              <ImageUpload label="Profile photo" value={data.profilePhoto} onChange={v => update("profilePhoto", v)} aspectRatio={PROFILE_RATIO} />
+              <div style={{ display: "flex", gap: 8 }}>
+                {([
+                  { value: "portrait" as const, label: "Rectangle", sub: "Standard portrait" },
+                  { value: "circle"   as const, label: "Circle",    sub: "Round frame" },
+                ]).map(opt => (
+                  <button key={opt.value} onClick={() => update("photoShape", opt.value)} style={{
+                    flex: 1, padding: "8px", borderRadius: 10, cursor: "pointer",
+                    border: "1.5px solid",
+                    borderColor: data.photoShape === opt.value ? "#00AEFF" : "#E5E7EB",
+                    background: data.photoShape === opt.value ? "#EBF7FF" : "white",
+                    display: "flex", flexDirection: "column", gap: 2, textAlign: "left",
+                  }}>
+                    <span style={{ fontSize: 13, fontWeight: 600, color: data.photoShape === opt.value ? "#0090D8" : "#111827" }}>{opt.label}</span>
+                    <span style={{ fontSize: 11, color: "#9CA3AF" }}>{opt.sub}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Firm logo */}
+            <div className="grid gap-2">
+              <Label className="text-xs text-muted-foreground uppercase tracking-wide">Firm logo</Label>
+              <ImageUpload label="Firm logo" value={data.firmLogo} onChange={v => {
+                update("firmLogo", v)
+                if (v) sampleLogoCorner(v)
+                else setLogoCornerColor("transparent")
+              }} aspectRatio={LOGO_RATIO} onDetectRatio={imgRatio => {
+                const isWide = imgRatio > 1.6
+                update("logoStyle", isWide ? "banner" : "tl")
+                return isWide ? 390 / 138 : 1
+              }} />
+              <p style={{ fontSize: 11, color: "#9CA3AF", margin: 0 }}>Logo shape and position are set automatically from your image — adjust under Lock Screen settings below.</p>
+            </div>
           </section>
 
         </div>
@@ -615,13 +650,46 @@ export default function NamecardEditor() {
                   <SegmentedControl options={GROUP_OPTIONS} value={data.groupPosition} onChange={v => update("groupPosition", v)} />
                 </div>
                 <div className="grid gap-1.5">
-                  <Label htmlFor="bgColor">Background color</Label>
-                  <div className="flex items-center gap-3">
-                    <input id="bgColor" type="color" value={data.backgroundColor}
-                      onChange={e => update("backgroundColor", e.target.value)}
-                      className="h-9 w-12 cursor-pointer rounded-md border border-border bg-background p-1" />
-                    <span className="font-mono text-sm text-muted-foreground">{data.backgroundColor.toUpperCase()}</span>
+                  <Label htmlFor="bgColor">Background</Label>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                    <div className="flex items-center gap-3">
+                      <input id="bgColor" type="color" value={data.backgroundColor}
+                        onChange={e => update("backgroundColor", e.target.value)}
+                        className="h-9 w-12 cursor-pointer rounded-md border border-border bg-background p-1" />
+                      <span className="font-mono text-sm text-muted-foreground">{data.backgroundColor.toUpperCase()}</span>
+                      {data.backgroundImage && (
+                        <button onClick={() => update("backgroundImage", null)}
+                          style={{ fontSize: 11, color: "#EF4444", background: "none", border: "none", cursor: "pointer", padding: 0 }}>
+                          Remove image
+                        </button>
+                      )}
+                    </div>
+                    <ImageUpload
+                      label="Background image"
+                      value={data.backgroundImage}
+                      onChange={v => update("backgroundImage", v)}
+                      aspectRatio={390 / 844}
+                    />
+                    <p style={{ fontSize: 11, color: "#9CA3AF", margin: 0 }}>Upload an image to use as the card background. Color is used if no image is set.</p>
                   </div>
+                </div>
+                <div className="grid gap-1.5">
+                  <Label>Font color</Label>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <input type="color"
+                      value={data.fontColor || "#FFFFFF"}
+                      onChange={e => update("fontColor", e.target.value)}
+                      className="h-9 w-12 cursor-pointer rounded-md border border-border bg-background p-1"
+                    />
+                    <span className="font-mono text-sm text-muted-foreground">{data.fontColor ? data.fontColor.toUpperCase() : "Auto"}</span>
+                    {data.fontColor && (
+                      <button onClick={() => update("fontColor", null)}
+                        style={{ fontSize: 11, color: "#00AEFF", background: "none", border: "none", cursor: "pointer", padding: 0, fontWeight: 500 }}>
+                        Reset to auto
+                      </button>
+                    )}
+                  </div>
+                  <p style={{ fontSize: 11, color: "#9CA3AF", margin: 0 }}>Auto adjusts between light and dark based on your background. Override here to match your brand.</p>
                 </div>
               </div>
               <p className="mb-3 text-center text-xs font-medium uppercase tracking-wide text-muted-foreground">
@@ -666,6 +734,33 @@ export default function NamecardEditor() {
           {activeTab === "card" && (
             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
 
+              {/* ── YOUR CARD LINK — top, elevated ── */}
+              <div style={{ background: "#EBF7FF", border: "1.5px solid #00AEFF", borderRadius: 12, padding: "16px", display: "flex", flexDirection: "column", gap: 10 }}>
+                <h2 className="text-sm font-semibold uppercase tracking-wide" style={{ color: "#0090D8" }}>Your Card Link</h2>
+                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                  <Label style={{ fontSize: 11, color: "#0090D8" }}>Customize your URL</Label>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, background: "white", border: "1.5px solid #BAE6FD", borderRadius: 8, padding: "8px 12px" }}>
+                    <span style={{ fontSize: 11, color: "#9CA3AF", whiteSpace: "nowrap", fontFamily: "monospace" }}>financialruler.com/</span>
+                    <input
+                      value={card.slug}
+                      onChange={e => updateCard("slug", e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))}
+                      placeholder="your-name"
+                      style={{ flex: 1, border: "none", outline: "none", fontSize: 12, fontFamily: "monospace", color: "#0090D8", background: "transparent", fontWeight: 600 }}
+                    />
+                  </div>
+                  <p style={{ fontSize: 11, color: "#9CA3AF", margin: 0 }}>Only lowercase letters, numbers, and hyphens. Reserved once saved.</p>
+                </div>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <input readOnly value={cardUrl} style={{ flex: 1, padding: "10px 12px", borderRadius: 8, border: "1.5px solid #BAE6FD", fontSize: 11, fontFamily: "monospace", color: "#0090D8", background: "white", minWidth: 0 }} />
+                  <Button size="sm" onClick={() => navigator.clipboard.writeText(cardUrl)} style={{ background: "#00AEFF", color: "white", border: "none" }}>
+                    Copy
+                  </Button>
+                </div>
+                <p style={{ fontSize: 11, color: "#0090D8", margin: 0, opacity: 0.7 }}>
+                  Automatically set as the QR code on your Lock Screen wallpaper.
+                </p>
+              </div>
+
               {/* ── BASE URL ── */}
               <div style={{ background: "#F9FAFB", border: "1px solid #E5E7EB", borderRadius: 12, padding: "14px 16px", display: "flex", flexDirection: "column", gap: 6 }}>
                 <Label style={{ fontSize: 11, color: "#6B7280", textTransform: "uppercase", letterSpacing: "0.06em" }}>Base URL</Label>
@@ -708,7 +803,6 @@ export default function NamecardEditor() {
                   <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Book a Meeting</h2>
                 </div>
                 <div style={{ padding: "12px 16px", display: "flex", flexDirection: "column", gap: 8 }}>
-                  {/* Meeting 1 */}
                   <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                     <Label style={{ fontSize: 11, color: "#6B7280" }}>Meeting 1</Label>
                     <Input value={card.calendlyLabel1} onChange={e => updateCard("calendlyLabel1", e.target.value)} placeholder="Label e.g. 15-min coffee chat" />
@@ -717,8 +811,6 @@ export default function NamecardEditor() {
                       <Input value={card.calendly1} onChange={e => updateCard("calendly1", e.target.value)} placeholder="calendly.com/yourname/coffee" />
                     </div>
                   </div>
-
-                  {/* Meeting 2 — collapsible */}
                   {!showMeeting2 ? (
                     <button onClick={() => setShowMeeting2(true)} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "#00AEFF", fontWeight: 500, background: "none", border: "none", cursor: "pointer", padding: 0, alignSelf: "flex-start" }}>
                       <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4"/></svg>
@@ -746,19 +838,33 @@ export default function NamecardEditor() {
                   <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Featured Links</h2>
                 </div>
                 <div style={{ padding: "12px 16px", display: "flex", flexDirection: "column", gap: 8 }}>
+                  <p style={{ fontSize: 11, color: "#9CA3AF", margin: 0 }}>Paste a YouTube URL to auto-show the video thumbnail. Any other link shows as a tile.</p>
                   {([
                     { lKey: "link1Label" as const, uKey: "link1Url" as const, n: 1 },
                     { lKey: "link2Label" as const, uKey: "link2Url" as const, n: 2 },
-                  ]).map(l => (
-                    <div key={l.n} style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                      <Label style={{ fontSize: 11, color: "#6B7280" }}>Link {l.n}</Label>
-                      <Input value={card[l.lKey]} onChange={e => updateCard(l.lKey, e.target.value)} placeholder="Label e.g. My latest article" />
-                      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                        <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="#9CA3AF" strokeWidth={2} style={{ flexShrink: 0 }}><path strokeLinecap="round" strokeLinejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.1-1.1m-.757-4.9a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>
-                        <Input value={card[l.uKey]} onChange={e => updateCard(l.uKey, e.target.value)} placeholder="https://..." />
+                  ]).map(l => {
+                    const ytId = (() => {
+                      const url = card[l.uKey]
+                      const m = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/)
+                      return m ? m[1] : null
+                    })()
+                    return (
+                      <div key={l.n} style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                        <Label style={{ fontSize: 11, color: "#6B7280" }}>Link {l.n}</Label>
+                        <Input value={card[l.lKey]} onChange={e => updateCard(l.lKey, e.target.value)} placeholder="Label e.g. My latest video" />
+                        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                          <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="#9CA3AF" strokeWidth={2} style={{ flexShrink: 0 }}><path strokeLinecap="round" strokeLinejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.1-1.1m-.757-4.9a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>
+                          <Input value={card[l.uKey]} onChange={e => updateCard(l.uKey, e.target.value)} placeholder="https://..." />
+                        </div>
+                        {ytId && (
+                          <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px", background: "#F9FAFB", borderRadius: 8, border: "1px solid #E5E7EB" }}>
+                            <img src={`https://img.youtube.com/vi/${ytId}/mqdefault.jpg`} alt="thumbnail" style={{ width: 80, height: 45, borderRadius: 4, objectFit: "cover", flexShrink: 0 }} />
+                            <span style={{ fontSize: 11, color: "#6B7280" }}>YouTube thumbnail detected ✓</span>
+                          </div>
+                        )}
                       </div>
-                    </div>
-                  ))}
+                    )
+                  })}
                 </div>
               </div>
 
@@ -770,9 +876,9 @@ export default function NamecardEditor() {
                 <div style={{ padding: "12px 16px", display: "flex", flexDirection: "column", gap: 8 }}>
                   <p style={{ fontSize: 11, color: "#9CA3AF", margin: 0 }}>These appear as claimable offers on your digital card. Toggle on the ones you want to show.</p>
                   {([
-                    { key: "offerKyc"      as const, label: "Free KYC Report",    desc: "You run a financial health check and share the results with the prospect." },
-                    { key: "offerAccess"   as const, label: "1 Year Free Access", desc: "You sponsor the prospect's free access to FinancialRuler for 1 year." },
-                    { key: "offerNamecard" as const, label: "Free Namecard",      desc: "The prospect gets their own free FinancialRuler digital namecard." },
+                    { key: "offerKyc"      as const, label: "Free Personalized Financial Appraisal", desc: "This is what I do for all my high net worth clients. They claim theirs free." },
+                    { key: "offerAccess"   as const, label: "Free 1 Year Access",                    desc: "You sponsor the prospect's free access to FinancialRuler for 1 year." },
+                    { key: "offerNamecard" as const, label: "Free Namecard",                         desc: "The prospect gets their own free FinancialRuler digital namecard." },
                   ]).map(o => (
                     <div key={o.key} style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "10px 12px", border: "1.5px solid", borderColor: card[o.key] ? "#00AEFF" : "#E5E7EB", borderRadius: 10, background: card[o.key] ? "#EBF7FF" : "white", transition: "all 0.15s", cursor: "pointer" }}
                       onClick={() => updateCard(o.key, !card[o.key])}>
@@ -808,20 +914,6 @@ export default function NamecardEditor() {
                     )}
                   </div>
                 </div>
-              </div>
-
-              {/* ── YOUR CARD LINK — elevated payoff ── */}
-              <div style={{ background: "#EBF7FF", border: "1.5px solid #00AEFF", borderRadius: 12, padding: "16px" }}>
-                <h2 className="text-sm font-semibold uppercase tracking-wide" style={{ color: "#0090D8", marginBottom: 8 }}>Your Card Link</h2>
-                <div style={{ display: "flex", gap: 8 }}>
-                  <input readOnly value={cardUrl} style={{ flex: 1, padding: "10px 12px", borderRadius: 8, border: "1.5px solid #BAE6FD", fontSize: 11, fontFamily: "monospace", color: "#0090D8", background: "white", minWidth: 0 }} />
-                  <Button size="sm" onClick={() => navigator.clipboard.writeText(cardUrl)} style={{ background: "#00AEFF", color: "white", border: "none" }}>
-                    Copy
-                  </Button>
-                </div>
-                <p style={{ fontSize: 11, color: "#0090D8", margin: "6px 0 0", opacity: 0.7 }}>
-                  Automatically set as the QR code on your Lock Screen wallpaper.
-                </p>
               </div>
 
             </div>

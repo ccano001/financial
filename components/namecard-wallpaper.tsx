@@ -16,6 +16,9 @@ export interface NamecardData {
   profilePhoto: string | null
   firmLogo: string | null
   backgroundColor: string
+  backgroundImage: string | null
+  fontColor: string | null
+  photoShape: "portrait" | "circle"
   logoStyle: LogoStyle
   groupPosition: GroupPosition
   qrValue: string
@@ -249,12 +252,21 @@ function CenterContact({ data, maxHeight, textPrimary, textSub }: { data: Nameca
   )
 }
 
-function PhotoBlock({ profilePhoto, displayName, size }: { profilePhoto: string | null; displayName: string; size: "center" | "side" }) {
+function PhotoBlock({ profilePhoto, displayName, size, photoShape = "portrait" }: { profilePhoto: string | null; displayName: string; size: "center" | "side"; photoShape?: "portrait" | "circle" }) {
   const initials = displayName.split(" ").filter((w) => w.length > 0).slice(0, 2).map((w) => w[0]).join("")
   const dims = size === "center" ? { width: 140, height: 180 } : { width: 120, height: 150 }
+  const isCircle = photoShape === "circle"
+  const circleDim = size === "center" ? 140 : 120
 
   return (
-    <div style={{ ...dims, borderRadius: 9, border: "2px solid white", overflow: "hidden", background: "#0C447C", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 32, fontWeight: "bold", color: "white", flexShrink: 0, boxShadow: "0 1px 4px rgba(0,0,0,0.15)" }}>
+    <div style={{
+      ...(isCircle ? { width: circleDim, height: circleDim } : dims),
+      borderRadius: isCircle ? "50%" : 9,
+      border: "2px solid white", overflow: "hidden", background: "#0C447C",
+      display: "flex", alignItems: "center", justifyContent: "center",
+      fontSize: 32, fontWeight: "bold", color: "white", flexShrink: 0,
+      boxShadow: "0 1px 4px rgba(0,0,0,0.15)"
+    }}>
       {profilePhoto
         ? <img src={profilePhoto || "/placeholder.svg"} crossOrigin="anonymous" style={{ width: "100%", height: "100%", objectFit: "cover" }} alt={displayName} />
         : initials}
@@ -283,9 +295,9 @@ const NamecardWallpaper = forwardRef<HTMLDivElement, NamecardWallpaperProps>(fun
   const b = parseInt(hex.slice(4,6)||"ff",16)
   const luma = 0.299*r + 0.587*g + 0.114*b
   const isDark = luma < 160
-  const textPrimary = isDark ? "#FFFFFF"           : "#1A1A1A"
-  const textSub     = isDark ? "rgba(255,255,255,0.70)" : "#666666"
-  const textMuted   = isDark ? "rgba(255,255,255,0.45)" : "#999999"
+  const textPrimary = data.fontColor || (isDark ? "#FFFFFF"                  : "#1A1A1A")
+  const textSub     = data.fontColor ? `${data.fontColor}CC`                 : (isDark ? "rgba(255,255,255,0.70)" : "#666666")
+  const textMuted   = data.fontColor ? `${data.fontColor}77`                 : (isDark ? "rgba(255,255,255,0.45)" : "#999999")
 
   const CENTER_PHOTO_H = 180
   // Photo starts below iOS clock zone (~160px)
@@ -314,6 +326,16 @@ const NamecardWallpaper = forwardRef<HTMLDivElement, NamecardWallpaperProps>(fun
         background: data.backgroundColor, fontFamily: "Inter, system-ui, sans-serif",
       }}
     >
+      {/* BACKGROUND IMAGE — renders behind everything */}
+      {data.backgroundImage && (
+        <img
+          src={data.backgroundImage}
+          crossOrigin="anonymous"
+          style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", zIndex: 0 }}
+          alt=""
+        />
+      )}
+
       {/* BRAND BADGE */}
       <div style={{ position: "absolute", top: 10, left: 10, zIndex: 20, background: "rgba(0,0,0,0.45)", borderRadius: 20, padding: "3px 8px", display: "flex", alignItems: "center", gap: 4 }}>
         <svg width="14" height="8" viewBox="0 0 14 8" aria-hidden="true">
@@ -328,7 +350,6 @@ const NamecardWallpaper = forwardRef<HTMLDivElement, NamecardWallpaperProps>(fun
 
       {/* LOGO — TOP LEFT CIRCLE */}
       {data.logoStyle === "tl" && data.firmLogo && (
-        // FIX: increased from 200→260px for more impact, offset adjusted to -65 to maintain edge bleed
         <div onClick={() => onEditLogo?.()} title="Click to edit logo" style={{ position: "absolute", top: -65, left: -65, zIndex: 6, width: 260, height: 260, borderRadius: "50%", overflow: "hidden", background: logoCornerColor, cursor: "pointer" }}>
           <img src={data.firmLogo || "/placeholder.svg"} crossOrigin="anonymous" style={{ width: "100%", height: "100%", objectFit: "cover" }} alt="firm logo" />
         </div>
@@ -336,7 +357,6 @@ const NamecardWallpaper = forwardRef<HTMLDivElement, NamecardWallpaperProps>(fun
 
       {/* LOGO — TOP RIGHT CIRCLE */}
       {data.logoStyle === "tr" && data.firmLogo && (
-        // FIX: increased from 200→260px for more impact, offset adjusted to -65 to maintain edge bleed
         <div onClick={() => onEditLogo?.()} title="Click to edit logo" style={{ position: "absolute", top: -65, right: -65, zIndex: 6, width: 260, height: 260, borderRadius: "50%", overflow: "hidden", background: logoCornerColor, cursor: "pointer" }}>
           <img src={data.firmLogo || "/placeholder.svg"} crossOrigin="anonymous" style={{ width: "100%", height: "100%", objectFit: "cover" }} alt="firm logo" />
         </div>
@@ -353,7 +373,7 @@ const NamecardWallpaper = forwardRef<HTMLDivElement, NamecardWallpaperProps>(fun
       {group === "center" && (
         <>
           <div style={{ position: "absolute", top: centerPhotoTop, left: 0, right: 0, zIndex: 10, display: "flex", justifyContent: "center", cursor: data.profilePhoto ? "pointer" : "default" }} onClick={() => data.profilePhoto && onEditPhoto?.()} title={data.profilePhoto ? "Click to edit photo" : undefined}>
-            <PhotoBlock profilePhoto={data.profilePhoto} displayName={data.displayName} size="center" />
+            <PhotoBlock profilePhoto={data.profilePhoto} displayName={data.displayName} size="center" photoShape={data.photoShape} />
           </div>
           <div style={{ position: "absolute", top: centerNameTop, left: 24, right: 24, zIndex: 10 }}>
             <CenterContact data={data} maxHeight={centerMaxHeight} textPrimary={textPrimary} textSub={textSub} />
@@ -365,7 +385,7 @@ const NamecardWallpaper = forwardRef<HTMLDivElement, NamecardWallpaperProps>(fun
       {group === "left" && (
         <div style={{ position: "absolute", top: 230, left: 24, right: 24, zIndex: 10, display: "flex", flexDirection: "row", alignItems: "flex-start", gap: 14 }}>
           <div onClick={() => data.profilePhoto && onEditPhoto?.()} title={data.profilePhoto ? "Click to edit photo" : undefined} style={{ cursor: data.profilePhoto ? "pointer" : "default", flexShrink: 0 }}>
-            <PhotoBlock profilePhoto={data.profilePhoto} displayName={data.displayName} size="side" />
+            <PhotoBlock profilePhoto={data.profilePhoto} displayName={data.displayName} size="side" photoShape={data.photoShape} />
           </div>
           <SideContact data={data} align="left" textPrimary={textPrimary} textSub={textSub} />
         </div>
@@ -376,7 +396,7 @@ const NamecardWallpaper = forwardRef<HTMLDivElement, NamecardWallpaperProps>(fun
         <div style={{ position: "absolute", top: 230, left: 24, right: 24, zIndex: 10, display: "flex", flexDirection: "row", alignItems: "flex-start", gap: 14 }}>
           <SideContact data={data} align="right" textPrimary={textPrimary} textSub={textSub} />
           <div onClick={() => data.profilePhoto && onEditPhoto?.()} title={data.profilePhoto ? "Click to edit photo" : undefined} style={{ cursor: data.profilePhoto ? "pointer" : "default", flexShrink: 0 }}>
-            <PhotoBlock profilePhoto={data.profilePhoto} displayName={data.displayName} size="side" />
+            <PhotoBlock profilePhoto={data.profilePhoto} displayName={data.displayName} size="side" photoShape={data.photoShape} />
           </div>
         </div>
       )}

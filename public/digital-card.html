@@ -261,8 +261,8 @@
         <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="white" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
       </div>
       <div class="offer-body">
-        <div class="offer-title-row"><span class="offer-title">Free KYC report</span><span class="offer-badge">Most popular</span></div>
-        <div class="offer-desc">A personalised snapshot of your financial health, prepared by <span class="fa-name-inline"></span></div>
+        <div class="offer-title-row"><span class="offer-title">Free Personalized Financial Appraisal</span><span class="offer-badge">Most popular</span></div>
+        <div class="offer-desc">This is what I do for all my high net worth clients. Claim yours free, prepared by <span class="fa-name-inline"></span></div>
       </div>
       <div class="offer-radio"></div>
     </div>
@@ -492,22 +492,41 @@ function initUI() {
       const fullUrl = cleanUrl(url)
       const domain = (() => { try { return new URL(fullUrl).hostname } catch { return '' } })()
 
+      // Detect YouTube URL and extract video ID
+      const ytMatch = fullUrl.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/)
+      const ytId = ytMatch ? ytMatch[1] : null
+
       const tile = document.createElement('a')
       tile.className = 'thumb-tile'
       tile.href = fullUrl; tile.target = '_blank'; tile.rel = 'noopener'
 
-      const fav = document.createElement('div')
-      fav.className = 'thumb-favicon'
-      const img = document.createElement('img')
-      img.src = `https://www.google.com/s2/favicons?domain=${domain}&sz=64`
-      img.onerror = () => { fav.innerHTML = '<svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="#00AEFF" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.1-1.1m-.757-4.9a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>' }
-      fav.appendChild(img)
+      if (ytId) {
+        tile.style.cssText = 'position:relative;overflow:hidden;padding:0;display:block;border-radius:12px;'
+        tile.innerHTML = `
+          <img src="https://img.youtube.com/vi/${ytId}/mqdefault.jpg" alt="${label}"
+            style="width:100%;height:100%;object-fit:cover;display:block;min-height:90px;" />
+          <div style="position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,0.7) 0%,transparent 60%);border-radius:12px;"></div>
+          <div style="position:absolute;bottom:8px;left:10px;right:10px;">
+            <div style="font-size:12px;font-weight:600;color:white;line-height:1.3;">${label}</div>
+          </div>
+          <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:36px;height:36px;background:rgba(255,0,0,0.85);border-radius:50%;display:flex;align-items:center;justify-content:center;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="white"><path d="M8 5v14l11-7z"/></svg>
+          </div>`
+      } else {
+        const fav = document.createElement('div')
+        fav.className = 'thumb-favicon'
+        const img = document.createElement('img')
+        img.src = `https://www.google.com/s2/favicons?domain=${domain}&sz=64`
+        img.onerror = () => { fav.innerHTML = '<svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="#00AEFF" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.1-1.1m-.757-4.9a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>' }
+        fav.appendChild(img)
 
-      const info = document.createElement('div')
-      info.className = 'thumb-info'
-      info.innerHTML = `<div class="thumb-title">${label}</div><div class="thumb-domain">${domain}</div>`
+        const info = document.createElement('div')
+        info.className = 'thumb-info'
+        info.innerHTML = `<div class="thumb-title">${label}</div><div class="thumb-domain">${domain}</div>`
 
-      tile.appendChild(fav); tile.appendChild(info)
+        tile.appendChild(fav); tile.appendChild(info)
+      }
+
       grid.appendChild(tile)
     })
   }
@@ -621,7 +640,7 @@ function goToScreen2() {
 
 // ── OFFER SELECTION ──
 let selectedOffer = 'kyc'
-const OFFER_LABELS = { kyc: 'Free KYC Report', access: '1 Year Free Access', namecard: 'Free Namecard', custom: 'Special Offer' }
+const OFFER_LABELS = { kyc: 'Free Personalized Financial Appraisal', access: 'Free 1 Year Access', namecard: 'Free Namecard', custom: 'Special Offer' }
 
 function selectOffer(card, key) {
   document.querySelectorAll('.offer-card:not(.hidden)').forEach(c => {

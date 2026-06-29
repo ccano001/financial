@@ -16,7 +16,7 @@ function initials(name: string) {
 async function downloadCanvas(canvas: HTMLCanvasElement, filename: string) {
   const link = document.createElement("a")
   link.download = filename
-  link.href = canvas.toDataURL("image/jpeg", 0.95)
+  link.href = canvas.toDataURL("image/png")
   link.click()
 }
 
@@ -33,28 +33,24 @@ async function captureElement(el: HTMLElement, scale = 2): Promise<HTMLCanvasEle
 //  ZOOM BACKGROUND  —  1920×1080
 // ═══════════════════════════════════════════════════════════════════
 
-type LayoutPreset = "logo-left" | "logo-right"
-type BgStyle = "solid" | "gradient"
-
+type LogoPosition = "left" | "center" | "right"
+type QrPosition  = "left" | "right"
+type BgStyle = "solid" | "gradient" | "image"
 type LogoShape = "square" | "rectangle"
 
 interface ZoomSettings {
-  layout:    LayoutPreset
+  logoPos:   LogoPosition
+  qrPos:     QrPosition
+  logoSize:  number       // 100–700, native px on 1920 canvas
   bgStyle:   BgStyle
   bgColor:   string
   bgColor2:  string
+  bgImage:   string | null
   logoShape: LogoShape
 }
 
 const ZOOM_W = 1920
 const ZOOM_H = 1080
-
-// Preset maps layout name → corner assignments
-// Logo and name panel both sit at the top, alternating sides. QR at bottom opposite to logo.
-const PRESETS: Record<LayoutPreset, { logo: string; info: string; qr: string }> = {
-  "logo-left":  { logo: "tl", info: "tr", qr: "br" },  // logo top-left, name top-right, QR bottom-right
-  "logo-right": { logo: "tr", info: "tl", qr: "bl" },  // logo top-right, name top-left, QR bottom-left
-}
 
 function ZoomBgCanvas({ data, settings, scale, logoCornerColor = "rgba(255,255,255,0.95)" }: {
   data: NamecardData
@@ -64,46 +60,42 @@ function ZoomBgCanvas({ data, settings, scale, logoCornerColor = "rgba(255,255,2
 }) {
   const W = ZOOM_W * scale
   const H = ZOOM_H * scale
+  const pad = Math.round(60 * scale)
+  const qrSize = Math.round(280 * scale)
 
-  const pad    = Math.round(52 * scale)
-  const qrSize = Math.round(148 * scale)
+  // Logo size driven by slider (native px on 1920 canvas)
+  const logoW = settings.logoShape === "rectangle"
+    ? Math.round(settings.logoSize * 1.6 * scale)
+    : Math.round(settings.logoSize * scale)
+  const logoH = Math.round(settings.logoSize * scale)
+  const logoRadius = settings.logoShape === "square" ? "50%" : `${Math.round(20 * scale)}px`
 
-  // Logo dimensions based on shape selection
-  const logoW = settings.logoShape === "square"
-    ? Math.round(200 * scale)   // FIX: bigger square frame
-    : Math.round(460 * scale)   // FIX: wider rectangle for wordmarks
-  const logoH = settings.logoShape === "square"
-    ? Math.round(200 * scale)
-    : Math.round(150 * scale)
-  const logoRadius = settings.logoShape === "square"
-    ? Math.round(20 * scale)
-    : Math.round(12 * scale)
-  // FIX: bigger text to fill the space, no panel box
-  const nameSz   = Math.round(64  * scale)
-  const emailSz  = Math.round(28  * scale)
+  const nameSz = Math.round(42 * scale)
 
-  const { logo: logoC, info: infoC, qr: qrC } = PRESETS[settings.layout]
+  // Logo position — bleed offset when logo is large enough to reach edge
+  const bleedOffset = settings.logoSize > 350 ? Math.round(-(settings.logoSize - 300) / 2 * scale) : Math.round(pad / 2)
+  const logoPosStyle: React.CSSProperties = (() => {
+    const top = bleedOffset < 0 ? bleedOffset : pad
+    if (settings.logoPos === "left")   return { position: "absolute", top, left: bleedOffset < 0 ? bleedOffset : pad }
+    if (settings.logoPos === "right")  return { position: "absolute", top, right: bleedOffset < 0 ? bleedOffset : pad }
+    return { position: "absolute", top, left: "50%", transform: `translateX(-50%)` }
+  })()
 
-  function pos(corner: string): React.CSSProperties {
-    if (corner === "tl") return { position: "absolute", top: pad, left: pad }
-    if (corner === "tr") return { position: "absolute", top: pad, right: pad }
-    if (corner === "bl") return { position: "absolute", bottom: pad, left: pad }
-    return { position: "absolute", bottom: pad, right: pad }
-  }
+  // QR + name position — bottom left or right
+  const qrPosStyle: React.CSSProperties = settings.qrPos === "left"
+    ? { position: "absolute", bottom: pad, left: pad }
+    : { position: "absolute", bottom: pad, right: pad }
+  const nameAlign = settings.qrPos === "left" ? "left" : "right"
 
   const bg = settings.bgStyle === "gradient"
     ? `linear-gradient(135deg, ${settings.bgColor} 0%, ${settings.bgColor2} 100%)`
+    : settings.bgStyle === "image" ? "transparent"
     : settings.bgColor
 
-  // Auto text colour from bg luma
   const hex = settings.bgColor.replace("#", "")
-  const r = parseInt(hex.slice(0,2),16), g = parseInt(hex.slice(2,4),16), b = parseInt(hex.slice(4,6),16)
+  const r = parseInt(hex.slice(0,2)||"1e",16), g = parseInt(hex.slice(2,4)||"3a",16), b = parseInt(hex.slice(4,6)||"5f",16)
   const luma = 0.299*r + 0.587*g + 0.114*b
-  const textCol = luma > 155 ? "#111827" : "#FFFFFF"
-  const subCol  = luma > 155 ? "rgba(0,0,0,0.55)" : "rgba(255,255,255,0.65)"
-
-  // Info text alignment mirrors which corner it's in
-  const infoAlign = infoC === "tr" || infoC === "br" ? "right" : "left"
+  const textCol = (settings.bgStyle === "image" || luma <= 155) ? "#FFFFFF" : "#111827"
 
   return (
     <div style={{
@@ -111,65 +103,62 @@ function ZoomBgCanvas({ data, settings, scale, logoCornerColor = "rgba(255,255,2
       background: bg, fontFamily: "Inter, system-ui, sans-serif",
       borderRadius: scale < 1 ? 8 : 0, flexShrink: 0,
     }}>
-      {/* LOGO — white card, dimensions driven by logoShape */}
+      {/* BACKGROUND IMAGE */}
+      {settings.bgStyle === "image" && settings.bgImage && (
+        <img src={settings.bgImage} alt="" crossOrigin="anonymous"
+          style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", zIndex: 0 }} />
+      )}
+
+      {/* LOGO — always transparent, no white card */}
       {data.firmLogo && (
         <div style={{
-          ...pos(logoC),
+          ...logoPosStyle,
           width: logoW, height: logoH,
-          background: logoCornerColor === "transparent" ? "transparent" : logoCornerColor,
           borderRadius: logoRadius,
-          boxShadow: "0 2px 16px rgba(0,0,0,0.14)",
           display: "flex", alignItems: "center", justifyContent: "center",
-          overflow: "hidden",
+          overflow: "hidden", zIndex: 6,
+          background: "transparent",
         }}>
-          <img
-            src={data.firmLogo} alt="logo" crossOrigin="anonymous"
-            style={{ maxWidth: "88%", maxHeight: "88%", objectFit: "contain", display: "block" }}
-          />
+          <img src={data.firmLogo} alt="logo" crossOrigin="anonymous"
+            style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }} />
         </div>
       )}
 
-      {/* QR CODE */}
-      <div style={{
-        ...pos(qrC),
-        background: "white",
-        padding: Math.round(6 * scale),
-        borderRadius: Math.round(10 * scale),
-        boxShadow: "0 2px 12px rgba(0,0,0,0.15)",
-        display: "flex", flexDirection: "column", alignItems: "center",
-        gap: Math.round(4 * scale),
-      }}>
-        <QRCodeSVG value={data.qrValue || " "} size={qrSize} level="H" />
-      </div>
-
-      {/* INFO — bare text, no panel box */}
-      <div style={{
-        ...pos(infoC),
-        display: "flex", flexDirection: "column",
-        gap: Math.round(6 * scale),
-        textAlign: infoAlign,
-        maxWidth: Math.round(700 * scale),
-      }}>
+      {/* NAME + QR stacked — tight gap */}
+      <div style={{ ...qrPosStyle, display: "flex", flexDirection: "column", alignItems: nameAlign === "right" ? "flex-end" : "flex-start", gap: Math.round(6 * scale), zIndex: 10 }}>
+        {/* Name — capped at 12 chars per line, matches QR width */}
         <div style={{
-          fontSize: nameSz, fontWeight: 800, color: textCol,
-          lineHeight: 1.1, letterSpacing: "-0.02em",
-          textShadow: luma > 155 ? "none" : "0 2px 12px rgba(0,0,0,0.3)",
+          fontSize: nameSz, fontWeight: 700, color: textCol,
+          lineHeight: 1.2, letterSpacing: "-0.01em",
+          textShadow: textCol === "#FFFFFF" ? "0 1px 8px rgba(0,0,0,0.4)" : "none",
+          textAlign: nameAlign,
+          width: qrSize + Math.round(12 * scale), // match QR box width
+          wordBreak: "break-word",
+          overflowWrap: "break-word",
         }}>
-          {data.displayName}
+          {(() => {
+            const name = data.displayName.trim()
+            if (name.length <= 14) return name
+            // Try to split at a space near the 14-char mark
+            const splitAt = name.lastIndexOf(" ", 14)
+            if (splitAt > 0) {
+              return <>{name.slice(0, splitAt)}<br />{name.slice(splitAt + 1)}</>
+            }
+            // No space — hard split at 14
+            return <>{name.slice(0, 14)}<br />{name.slice(14, 28)}</>
+          })()}
         </div>
         <div style={{
-          fontSize: emailSz, color: subCol, fontWeight: 400,
-          textShadow: luma > 155 ? "none" : "0 1px 8px rgba(0,0,0,0.25)",
+          background: "white", padding: Math.round(6 * scale),
+          borderRadius: Math.round(10 * scale),
+          boxShadow: "0 2px 12px rgba(0,0,0,0.15)", display: "inline-flex",
         }}>
-          {data.email}
+          <QRCodeSVG value={data.qrValue || " "} size={qrSize} level="H" />
         </div>
       </div>
 
       {/* BRAND WATERMARK */}
-      <div style={{
-        position: "absolute", bottom: Math.round(14 * scale), left: "50%",
-        transform: "translateX(-50%)", opacity: 0.3,
-      }}>
+      <div style={{ position: "absolute", bottom: Math.round(14 * scale), left: "50%", transform: "translateX(-50%)", opacity: 0.3, zIndex: 5 }}>
         <span style={{ fontSize: Math.round(10 * scale), color: textCol, fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase", whiteSpace: "nowrap" }}>
           {data.brandName}
         </span>
@@ -188,14 +177,16 @@ export function ZoomBackgroundOutput({ data, logoCornerColor = "rgba(255,255,255
   const [downloading, setDownloading] = useState(false)
 
   const [settings, setSettings] = useState<ZoomSettings>({
-    layout:    "logo-left",
+    logoPos:   "left",
+    qrPos:     "right",
+    logoSize:  500,
     bgStyle:   "solid",
     bgColor:   data.backgroundColor && data.backgroundColor !== "#FFFFFF" ? data.backgroundColor : "#1E3A5F",
     bgColor2:  "#00AEFF",
+    bgImage:   null,
     logoShape: logoShapeProp,
   })
 
-  // Keep logoShape in sync when lockscreen logo style changes
   useEffect(() => {
     setSettings(s => ({ ...s, logoShape: logoShapeProp }))
   }, [logoShapeProp])
@@ -205,13 +196,23 @@ export function ZoomBackgroundOutput({ data, logoCornerColor = "rgba(255,255,255
     if (k === "logoShape" && onLogoShapeChange) onLogoShapeChange(v as LogoShape)
   }
 
+  const bgImageRef = useRef<HTMLInputElement>(null)
+
+  const handleBgImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]; if (!file) return
+    const reader = new FileReader()
+    reader.onload = () => set("bgImage", reader.result as string)
+    reader.readAsDataURL(file)
+    e.target.value = ""
+  }
+
   const handleDownload = async () => {
     const el = exportRef.current
     if (!el) return
     setDownloading(true)
     try {
-      const canvas = await captureElement(el, 1)
-      await downloadCanvas(canvas, `ZoomBg_${data.displayName.replace(/\s+/g,"_")}.jpg`)
+      const canvas = await captureElement(el, 2)
+      await downloadCanvas(canvas, `ZoomBg_${data.displayName.replace(/\s+/g,"_")}.png`)
     } finally {
       setDownloading(false)
     }
@@ -224,26 +225,56 @@ export function ZoomBackgroundOutput({ data, logoCornerColor = "rgba(255,255,255
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
 
-      {/* ── LAYOUT ── */}
+      {/* ── LOGO POSITION + SIZE ── */}
       <div style={{ border: "1px solid #E5E7EB", borderRadius: 12, overflow: "hidden" }}>
         <div style={{ padding: "12px 16px", background: "#F9FAFB", borderBottom: "1px solid #E5E7EB" }}>
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Layout</h2>
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Logo</h2>
+        </div>
+        <div style={{ padding: "12px 16px", display: "flex", flexDirection: "column", gap: 10 }}>
+          {/* Position */}
+          <div style={{ display: "flex", gap: 8 }}>
+            {(["left","center","right"] as LogoPosition[]).map(p => (
+              <button key={p} onClick={() => set("logoPos", p)} style={{
+                flex: 1, padding: "8px", borderRadius: 10, cursor: "pointer", border: "1.5px solid",
+                borderColor: settings.logoPos === p ? "#00AEFF" : "#E5E7EB",
+                background: settings.logoPos === p ? "#EBF7FF" : "white",
+                fontSize: 13, fontWeight: settings.logoPos === p ? 600 : 400,
+                color: settings.logoPos === p ? "#0090D8" : "#111827", textTransform: "capitalize",
+              }}>{p}</button>
+            ))}
+          </div>
+          {/* Size slider */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <Label style={{ fontSize: 11, color: "#6B7280" }}>Size</Label>
+              <span style={{ fontSize: 11, color: "#9CA3AF" }}>{settings.logoSize}px</span>
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span style={{ fontSize: 10, color: "#9CA3AF" }}>S</span>
+              <input type="range" min={150} max={700} step={10} value={settings.logoSize}
+                onChange={e => set("logoSize", parseInt(e.target.value))}
+                style={{ flex: 1 }} />
+              <span style={{ fontSize: 13, color: "#9CA3AF" }}>L</span>
+            </div>
+            <p style={{ fontSize: 11, color: "#9CA3AF", margin: 0 }}>Drag larger to bleed into the corner — smaller to float with padding.</p>
+          </div>
+        </div>
+      </div>
+
+      {/* ── QR POSITION ── */}
+      <div style={{ border: "1px solid #E5E7EB", borderRadius: 12, overflow: "hidden" }}>
+        <div style={{ padding: "12px 16px", background: "#F9FAFB", borderBottom: "1px solid #E5E7EB" }}>
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">QR Code Position</h2>
         </div>
         <div style={{ padding: "12px 16px", display: "flex", gap: 8 }}>
-          {([
-            { value: "logo-left"  as LayoutPreset, label: "← Logo left",  sub: "Info top right" },
-            { value: "logo-right" as LayoutPreset, label: "Logo right →", sub: "Info top left"  },
-          ]).map(opt => (
-            <button key={opt.value} onClick={() => set("layout", opt.value)} style={{
-              flex: 1, padding: "10px 8px", borderRadius: 10, cursor: "pointer",
-              border: "1.5px solid",
-              borderColor: settings.layout === opt.value ? "#00AEFF" : "#E5E7EB",
-              background: settings.layout === opt.value ? "#EBF7FF" : "white",
-              display: "flex", flexDirection: "column", gap: 2,
-            }}>
-              <span style={{ fontSize: 13, fontWeight: 600, color: settings.layout === opt.value ? "#0090D8" : "#111827" }}>{opt.label}</span>
-              <span style={{ fontSize: 11, color: "#9CA3AF" }}>{opt.sub}</span>
-            </button>
+          {(["left","right"] as QrPosition[]).map(p => (
+            <button key={p} onClick={() => set("qrPos", p)} style={{
+              flex: 1, padding: "8px", borderRadius: 10, cursor: "pointer", border: "1.5px solid",
+              borderColor: settings.qrPos === p ? "#00AEFF" : "#E5E7EB",
+              background: settings.qrPos === p ? "#EBF7FF" : "white",
+              fontSize: 13, fontWeight: settings.qrPos === p ? 600 : 400,
+              color: settings.qrPos === p ? "#0090D8" : "#111827", textTransform: "capitalize",
+            }}>{p === "left" ? "← Bottom left" : "Bottom right →"}</button>
           ))}
         </div>
       </div>
@@ -260,8 +291,7 @@ export function ZoomBackgroundOutput({ data, logoCornerColor = "rgba(255,255,255
               { value: "rectangle" as LogoShape, label: "▬  Rectangle", sub: "Wordmarks / wide logos"  },
             ]).map(opt => (
               <button key={opt.value} onClick={() => set("logoShape", opt.value)} style={{
-                flex: 1, padding: "10px 8px", borderRadius: 10, cursor: "pointer",
-                border: "1.5px solid",
+                flex: 1, padding: "10px 8px", borderRadius: 10, cursor: "pointer", border: "1.5px solid",
                 borderColor: settings.logoShape === opt.value ? "#00AEFF" : "#E5E7EB",
                 background: settings.logoShape === opt.value ? "#EBF7FF" : "white",
                 display: "flex", flexDirection: "column", gap: 2, textAlign: "left",
@@ -280,42 +310,64 @@ export function ZoomBackgroundOutput({ data, logoCornerColor = "rgba(255,255,255
         <div style={{ padding: "12px 16px", background: "#F9FAFB", borderBottom: "1px solid #E5E7EB" }}>
           <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Background</h2>
         </div>
-        <div style={{ padding: "12px 16px", display: "flex", alignItems: "center", gap: 10 }}>
-          <div style={{ display: "flex", gap: 4 }}>
-            {(["solid","gradient"] as BgStyle[]).map(s => (
+        <div style={{ padding: "12px 16px", display: "flex", flexDirection: "column", gap: 10 }}>
+          <div style={{ display: "flex", gap: 6 }}>
+            {(["solid","gradient","image"] as BgStyle[]).map(s => (
               <button key={s} onClick={() => set("bgStyle", s)} style={{
-                padding: "5px 12px", borderRadius: 8, fontSize: 12, fontWeight: 500,
+                flex: 1, padding: "6px 0", borderRadius: 8, fontSize: 12, fontWeight: 500,
                 cursor: "pointer", border: "1.5px solid",
                 borderColor: settings.bgStyle === s ? "#00AEFF" : "#E5E7EB",
                 background: settings.bgStyle === s ? "#EBF7FF" : "white",
                 color: settings.bgStyle === s ? "#0090D8" : "#6B7280",
-              }}>
-                {s === "solid" ? "Solid" : "Gradient"}
-              </button>
+              }}>{s === "solid" ? "Solid" : s === "gradient" ? "Gradient" : "Image"}</button>
             ))}
           </div>
-          <input type="color" value={settings.bgColor} onChange={e => set("bgColor", e.target.value)}
-            style={{ width: 36, height: 32, borderRadius: 6, border: "1px solid #E5E7EB", padding: 2, cursor: "pointer" }} />
-          {settings.bgStyle === "gradient" && (
-            <>
-              <span style={{ fontSize: 12, color: "#9CA3AF" }}>→</span>
-              <input type="color" value={settings.bgColor2} onChange={e => set("bgColor2", e.target.value)}
+          {settings.bgStyle !== "image" && (
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <input type="color" value={settings.bgColor} onChange={e => set("bgColor", e.target.value)}
                 style={{ width: 36, height: 32, borderRadius: 6, border: "1px solid #E5E7EB", padding: 2, cursor: "pointer" }} />
-            </>
+              {settings.bgStyle === "gradient" && (
+                <>
+                  <span style={{ fontSize: 12, color: "#9CA3AF" }}>→</span>
+                  <input type="color" value={settings.bgColor2} onChange={e => set("bgColor2", e.target.value)}
+                    style={{ width: 36, height: 32, borderRadius: 6, border: "1px solid #E5E7EB", padding: 2, cursor: "pointer" }} />
+                </>
+              )}
+              <span style={{ fontFamily: "monospace", fontSize: 11, color: "#9CA3AF" }}>{settings.bgColor.toUpperCase()}</span>
+            </div>
           )}
-          <span style={{ fontFamily: "monospace", fontSize: 11, color: "#9CA3AF" }}>{settings.bgColor.toUpperCase()}</span>
+          {settings.bgStyle === "image" && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              <input ref={bgImageRef} type="file" accept="image/*" style={{ display: "none" }} onChange={handleBgImageUpload} />
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <button onClick={() => bgImageRef.current?.click()} style={{
+                  padding: "8px 14px", borderRadius: 8, border: "1.5px solid #E5E7EB",
+                  background: "white", fontSize: 12, fontWeight: 500, cursor: "pointer", color: "#374151",
+                }}>{settings.bgImage ? "Replace image" : "Upload image"}</button>
+                {settings.bgImage && (
+                  <button onClick={() => set("bgImage", null)} style={{ fontSize: 11, color: "#EF4444", background: "none", border: "none", cursor: "pointer" }}>Remove</button>
+                )}
+              </div>
+              {settings.bgImage && (
+                <img src={settings.bgImage} alt="bg preview" style={{ width: "100%", height: 60, objectFit: "cover", borderRadius: 8, border: "1px solid #E5E7EB" }} />
+              )}
+              <p style={{ fontSize: 11, color: "#9CA3AF", margin: 0 }}>Use a 1920×1080 image for best results.</p>
+            </div>
+          )}
         </div>
       </div>
 
-      {/* ── 16:9 PREVIEW ── */}
+      {/* ── 16:9 PREVIEW — CSS scaled from native size ── */}
       <div style={{
         width: PANEL_W,
         height: Math.round(PANEL_W * (ZOOM_H / ZOOM_W)),
         borderRadius: 8, overflow: "hidden",
         border: "1px solid #E5E7EB",
-        flexShrink: 0,
+        flexShrink: 0, position: "relative",
       }}>
-        <ZoomBgCanvas data={data} settings={settings} scale={previewScale} logoCornerColor={logoCornerColor} />
+        <div style={{ transformOrigin: "top left", transform: `scale(${previewScale})`, position: "absolute", top: 0, left: 0 }}>
+          <ZoomBgCanvas data={data} settings={settings} scale={1} logoCornerColor={logoCornerColor} />
+        </div>
       </div>
 
       {/* Hidden full-res export target */}
@@ -411,24 +463,23 @@ function EmailSigCanvas({ data, accentColor }: { data: NamecardData; accentColor
         <div style={{ background: "white", padding: 2, border: "1px solid #E5E7EB", borderRadius: 4 }}>
           <QRCodeSVG value={data.qrValue || " "} size={52} level="M" />
         </div>
-        <span style={{ fontSize: 7, color: "#9CA3AF", textAlign: "center" }}>Scan to connect</span>
       </div>
     </div>
   )
 }
 
 export function EmailSignatureOutput({ data }: { data: NamecardData }) {
-  const sigRef = useRef<HTMLDivElement>(null)
+  const exportRef = useRef<HTMLDivElement>(null) // full-size hidden element for download
   const [downloading, setDownloading] = useState(false)
   const [accentColor, setAccentColor] = useState("#00AEFF")
 
   const handleDownload = async () => {
-    const el = sigRef.current
+    const el = exportRef.current
     if (!el) return
     setDownloading(true)
     try {
-      const canvas = await captureElement(el, 2)
-      await downloadCanvas(canvas, `EmailSig_${data.displayName.replace(/\s+/g,"_")}.jpg`)
+      const canvas = await captureElement(el, 3) // 3x pixelRatio on native 640px = crisp output
+      await downloadCanvas(canvas, `EmailSig_${data.displayName.replace(/\s+/g,"_")}.png`)
     } finally {
       setDownloading(false)
     }
@@ -449,20 +500,27 @@ export function EmailSignatureOutput({ data }: { data: NamecardData }) {
         </div>
       </div>
 
-      {/* ── PREVIEW ── */}
+      {/* ── PREVIEW — scaled down for display ── */}
       <div style={{ border: "1px solid #E5E7EB", borderRadius: 12, overflow: "hidden" }}>
         <div style={{ padding: "12px 16px", background: "#F9FAFB", borderBottom: "1px solid #E5E7EB" }}>
           <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Preview</h2>
         </div>
         <div style={{ padding: "16px" }}>
-          <div style={{ width: 390, height: Math.round(SIG_H * (390 / SIG_W)), overflow: "visible", borderRadius: 8 }}>
-            <div ref={sigRef} style={{ transformOrigin: "top left", transform: `scale(${390 / SIG_W})` }}>
+          <div style={{ width: 390, height: Math.round(SIG_H * (390 / SIG_W)), overflow: "hidden", borderRadius: 8 }}>
+            <div style={{ transformOrigin: "top left", transform: `scale(${390 / SIG_W})`, width: SIG_W }}>
               <EmailSigCanvas data={data} accentColor={accentColor} />
             </div>
           </div>
           <p style={{ fontSize: 11, color: "#9CA3AF", margin: "10px 0 0", lineHeight: 1.5 }}>
-            Download the PNG then insert it as an image in Gmail or Outlook. Link it to your QR URL so clicks go to your digital card.
+            Download the PNG then insert it as an image in Gmail or Outlook. Link it to your card URL so clicks go to your digital card.
           </p>
+        </div>
+      </div>
+
+      {/* Hidden full-size export target — never scaled, captures at native 640px */}
+      <div style={{ position: "fixed", left: -9999, top: -9999, pointerEvents: "none" }}>
+        <div ref={exportRef}>
+          <EmailSigCanvas data={data} accentColor={accentColor} />
         </div>
       </div>
 
